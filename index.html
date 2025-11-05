@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RiceUp Mobile App</title>
+    
+    <!-- Add Firebase SDK -->
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAzj34ncOS8oilRwAvquFHHaznwd0JRkZY",
+            authDomain: "riceup-8ac2f.firebaseapp.com",
+            projectId: "riceup-8ac2f",
+            storageBucket: "riceup-8ac2f.firebasestorage.app",
+            messagingSenderId: "1011803681191",
+            appId: "1:1011803681191:web:c1bc0c73d10b5897aac682",
+            measurementId: "G-KGWR4CWE7D"
+        };
+
+        try {
+            // Initialize Firebase
+            const app = initializeApp(firebaseConfig);
+            const analytics = getAnalytics(app);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+
+            // Make Firebase available globally
+            window.firebase = {
+                app,
+                auth,
+                db,
+                analytics,
+                createUserWithEmailAndPassword,
+                signInWithEmailAndPassword,
+                signOut,
+                onAuthStateChanged,
+                doc,
+                setDoc,
+                getDoc,
+                updateDoc,
+                initialized: true
+            };
+            
+            console.log('Firebase initialized successfully');
+        } catch (error) {
+            console.error('Firebase initialization error:', error);
+            window.firebase = { initialized: false, error: error.message };
+        }
+    </script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            overflow-x: hidden;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 430px;
+            min-height: 100vh;
+            margin: 0 auto;
+            position: relative;
+            background-color: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        }
+
+        .page {
+            position: absolute;
+            width: 100%;
+            height: 100vh;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.3s ease;
+            opacity: 0;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .page.active {
+            opacity: 1;
+            z-index: 1;
+        }
+
+        /* Main Page */
+        #main {
+            background-image: url('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Main-x9v5u2UCnbzQBOUZcK4QsNXjCryVow.jpg');
+            justify-content: flex-end;
+            padding-bottom: 1in;
+        }
+        
+        .logo-rectangle {
+            width: 180px;
+            height: 60px;
+            background-color: #5B3A29;
+            border-radius: 30px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            font-weight: semi-bold;
+            transition: transform 0.3s ease;
+            border: none;
+            color: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .logo-rectangle:hover {
+            transform: scale(1.05);
+        }
+
+        /* Page 1 */
+        #page1 {
+            background-image: url('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Page%201-n8uFr8g8ZAE4oAfIkErt7cFBSaxwMU.jpg');
+        }
+
+        /* Page 2 */
+        #page2 {
+            background-image: url('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Page%202-KPy5NsusQhYHqew6Z6cMP0XouNujBC.jpg');
+        }
+
+        /* Page 3 */
+        #page3 {
+            background-image: url('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Page%203-Q1JX5Lrb0Li3px0EbiGO9zAiqghjcd.jpg');
+        }
+
+        /* Page 4 */
+        #page4 {
+            background-image: url('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Page%204-XQzZ4N1N9BqdZGfOhcvfBrC1nldarK.jpg');
+        }
+
+        /* Login Page */
+        #login {
+            background-image: url('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/LogIn-ej36d7wadHmTtHnEN4Xs2jmcCl9lq1.jpg');
+        }
+
+        /* Register Page */
+        #register {
+            background-image: url('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Register-m6Kazt5nLx9Zeujn5oH1hT1NSAvUY4.jpg');
+        }
+
+        /* Dashboard Page */
+        #dashboard {
+            background-image: url('https://uploads.onecompiler.io/4437779jy/443776xrn/Dashboard.jpg');
+        }
+
+        .button-container {
+            position: absolute;
+            bottom: 60px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 0 30px;
+            align-items: center;
+        }
+
+        button {
+            width: 100%;
+            max-width: 250px;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .btn-next {
+            background-color: #E8C8A8;
+            color: #333;
+        }
+
+        .btn-next:hover {
+            background-color: #D4A574;
+            transform: scale(1.05);
+        }
+
+        .btn-skip {
+            background-color: #F8F0E4;
+            color: #333;
+        }
+
+        .btn-skip:hover {
+            background-color: #F5E6D3;
+            transform: scale(1.05);
+        }
+
+        .btn-yellow {
+            background-color: #F8E6B0;
+            color: #333;
+        }
+
+        .btn-yellow:hover {
+            background-color: #F4C430;
+            transform: scale(1.05);
+        }
+
+        .btn-green {
+            background-color: #B8D8A0;
+            color: white;
+        }
+
+        .btn-green:hover {
+            background-color: #6B8E23;
+            transform: scale(1.05);
+        }
+
+        .btn-brown {
+            background-color: #B89F92;
+            color: white;
+        }
+
+        .btn-brown:hover {
+            background-color: #5C4033;
+            transform: scale(1.05);
+        }
+
+        /* Form Styles */
+        .form-container {
+            position: absolute;
+            top: 3in;
+            width: 100%;
+            padding: 0 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+
+        input {
+            width: 100%;
+            max-width: 250px;
+            padding: 12px 15px;
+            border: none;
+            border-bottom: 2px solid #6B8E23;
+            background-color: transparent;
+            font-size: 18px;
+            color: #333;
+        }
+
+        input::placeholder {
+            color: #999;
+        }
+
+        input:focus {
+            outline: none;
+            border-bottom-color: #5C4033;
+        }
+
+        /* Magregister and Bumalik sa log-in */
+        .link-text {
+            position: absolute;
+            bottom: 280px;
+            font-size: 14px;
+            color: #666;
+            cursor: pointer;
+            text-decoration: underline;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .link-text:hover {
+            color: #333;
+        }
+
+        /* Dashboard Styles */
+        .dashboard-container {
+            position: absolute;
+            width: 100%;
+            height: 90%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .dashboard-rectangles {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 90%;
+            max-width: 800px;
+            margin-top: 65px;
+        }
+
+        .rectangle {
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            cursor: pointer;
+        }
+
+        .weather-rect {
+            background-color: #5C4033;
+            color: white;
+            width: 95%;
+            height: 160px;
+            margin-bottom: 5px;
+            opacity: 1;
+        }
+
+        .kalendaryo-rect {
+            background-color: #5C6AC4;
+            color: white;
+            width: 95%;
+            height: 70px;
+            background-image: url('https://uploads.onecompiler.io/4434ar49h/44348rxnc/KalendaryoButton.jpg');
+            background-size: cover;
+            background-position: center;
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+
+        .kalendaryo-rect:hover {
+            opacity: 1;
+        }
+
+        .suriin-rect {
+            background-color: #6B8E23;
+            color: white;
+            width: 95%;
+            height: 70px;
+            background-image: url('https://uploads.onecompiler.io/4434ar49h/44348rxnc/SuriinButton.jpg');
+            background-size: cover;
+            background-position: center;
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+
+        .suriin-rect:hover {
+            opacity: 1;
+        }
+
+        .presyo-rect {
+            background-color: #5C4033;
+            color: white;
+            width: 95%;
+            height: 70px;
+            background-image: url('https://uploads.onecompiler.io/4437779jy/443776xrn/PresyoButton.jpg');
+            background-size: cover;
+            background-position: center;
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+
+        .presyo-rect:hover {
+            opacity: 1;
+        }
+
+        /* Icons */
+        .icon {
+            font-size: 24px;
+            margin-right: 18px;
+        }
+
+        /* Text alignment */
+        .text-content {
+            flex: 1;
+            text-align: left;
+        }
+
+        /* Loading indicator */
+        .loading {
+            font-style: italic;
+            color: #ccc;
+        }
+
+        /* Error message styling */
+        .error-message {
+            color: #ff6b6b;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .success-message {
+            color: #6B8E23;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 10px;
+            display: none;
+        }
+
+        /* Loading spinner */
+        .loading-spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #5C4033;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Transition overlay for external navigation */
+        .transition-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #FDF2DC;
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .transition-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .transition-overlay .loading-text {
+            font-size: 24px;
+            color: #5C4033;
+        }
+
+        /* Weather icon styles */
+        .weather-icon {
+            font-size: 36px;
+            margin-right: 15px;
+        }
+
+        /* Refresh button */
+        .refresh-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 5px;
+            text-decoration: underline;
+            padding: 0;
+            max-width: none;
+        }
+
+        .refresh-btn:hover {
+            color: #F8E6B0;
+            transform: none;
+        }
+
+        /* Add media query for better mobile experience */
+        @media (max-width: 768px) {
+            body {
+                background-color: #000;
+            }
+            
+            .container {
+                max-width: 100%;
+                height: 100vh;
+                overflow: hidden;
+            }
+            
+            .page {
+                height: 100vh;
+                overflow: hidden;
+            }
+            
+            /* Keep all forms and buttons fixed */
+            .form-container,
+            .button-container,
+            .link-text {
+                position: absolute !important;
+            }
+            
+            /* Specifically fix login and register elements */
+            #login .form-container,
+            #register .form-container {
+                position: absolute;
+                top: 3in;
+                margin-top: 0;
+            }
+            
+            #login .link-text,
+            #register .link-text {
+                position: absolute;
+                bottom: 280px;
+                margin: 0;
+            }
+            
+            .button-container {
+                bottom: 60px;
+                margin: 0;
+            }
+            
+            .dashboard-container {
+                position: relative;
+                height: 100%;
+                overflow-y: auto;
+            }
+            
+            #main {
+                padding-bottom: 80px;
+            }
+            
+            .logo-rectangle {
+                width: 160px;
+                height: 50px;
+                font-size: 20px;
+            }
+        }
+
+        /* Add viewport meta tag optimization */
+        @media screen and (max-width: 430px) {
+            .container {
+                max-width: 100%;
+                box-shadow: none;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <!-- Transition overlay for external page navigation -->
+    <div class="transition-overlay" id="transitionOverlay">
+        <div class="loading-text">Loading...</div>
+    </div>
+
+    <div class="container">
+        <!-- Main Page -->
+        <div id="main" class="page active">
+            <div class="logo-rectangle" onclick="navigateTo('page1')">Mag-simula</div>
+        </div>
+
+        <!-- Page 1 -->
+        <div id="page1" class="page">
+            <div class="button-container">
+                <button class="btn-next" onclick="navigateTo('page2')">SUSUNOD</button>
+                <button class="btn-skip" onclick="navigateTo('login')">LAKTAWAN</button>
+            </div>
+        </div>
+
+        <!-- Page 2 -->
+        <div id="page2" class="page">
+            <div class="button-container">
+                <button class="btn-green" onclick="navigateTo('page3')">SUSUNOD</button>
+            </div>
+        </div>
+
+        <!-- Page 3 -->
+        <div id="page3" class="page">
+            <div class="button-container">
+                <button class="btn-yellow" onclick="navigateTo('page4')">SUSUNOD</button>
+            </div>
+        </div>
+
+        <!-- Page 4 -->
+        <div id="page4" class="page">
+            <div class="button-container">
+                <button class="btn-green" onclick="navigateTo('login')">SIMULAN</button>
+            </div>
+        </div>
+
+        <!-- Login Page -->
+        <div id="login" class="page">
+            <div class="form-container">
+                <input type="text" placeholder="Username (Full Name)" id="username">
+                <input type="password" placeholder="Password (yyyy/mm/dd)" id="password">
+                <button class="btn-brown" onclick="handleLogin()" id="loginBtn">
+                    <span id="loginText">Mag Log-in</span>
+                    <div class="loading-spinner" id="loginSpinner"></div>
+                </button>
+                <div class="error-message" id="loginError"></div>
+                <div class="success-message" id="loginSuccess"></div>
+            </div>
+            <div class="link-text" onclick="navigateTo('register')">Wala pang account? <b>Mag register na</b></div>
+        </div>
+
+        <!-- Register Page -->
+        <div id="register" class="page">
+            <div class="form-container">
+                <input type="text" placeholder="Pangalan" id="fullname">
+                <input type="text" placeholder="Birthdate (dd/mm/yyyy)" id="birthdate" onfocus="showDateInfo()" onblur="hideDateInfo()">
+                <div class="error-message" id="dateFormatInfo" style="display: none; color: #666; font-style: italic;">
+                    Format: dd/mm/yyyy (halimbawa: 15/05/1990)
+                </div>
+                <input type="text" placeholder="Lokasyon" id="location" value="Naic, Cavite">
+                <button class="btn-brown" onclick="handleRegister()" id="registerBtn">
+                    <span id="registerText">Magpatulog</span>
+                    <div class="loading-spinner" id="registerSpinner"></div>
+                </button>
+                <div class="error-message" id="registerError"></div>
+                <div class="success-message" id="registerSuccess"></div>
+            </div>
+            <div class="link-text" onclick="navigateTo('login')">May account na? Bumalik sa Login</div>
+        </div>
+
+        <!-- Dashboard Page -->
+        <div id="dashboard" class="page">
+            <div class="dashboard-container">
+                <div class="dashboard-rectangles">
+                    <div class="rectangle weather-rect">
+                        <div class="weather-icon" id="weather-icon">⛅</div>
+                        <div class="text-content">
+                            <div id="weather-info">Loading weather for Naic, Cavite...</div>
+                            <button class="refresh-btn" onclick="refreshWeather()">Refresh Weather</button>
+                        </div>
+                    </div>
+                    <div class="rectangle kalendaryo-rect" onclick="navigateToPage('kalendaryo.html')">
+                        <!-- Removed text content -->
+                    </div>
+                    <div class="rectangle suriin-rect" onclick="navigateToPage('suriin.html')">
+                        <!-- Removed text content -->
+                    </div>
+                    <div class="rectangle presyo-rect" onclick="navigateToPage('presyo.html')">
+                        <!-- Removed text content -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // User Management System with Firebase
+        const SESSION_EXPIRY_HOURS = 24;
+
+        // Wait for Firebase to be loaded
+        let firebaseInitialized = false;
+        const firebaseCheckInterval = setInterval(() => {
+            if (window.firebase) {
+                clearInterval(firebaseCheckInterval);
+                if (window.firebase.initialized) {
+                    firebaseInitialized = true;
+                    initializeFirebaseAuth();
+                    console.log('Firebase successfully initialized');
+                } else {
+                    console.error('Firebase failed to initialize:', window.firebase.error);
+                    showGlobalError('Firebase initialization failed. Please check console for details.');
+                }
+            }
+        }, 100);
+
+        function showGlobalError(message) {
+            // Create a global error message that appears on all pages
+            const errorDiv = document.createElement('div');
+            errorDiv.style.cssText = `
+                position: fixed;
+                top: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #ff6b6b;
+                color: white;
+                padding: 10px 20px;
+                border-radius: 5px;
+                z-index: 10000;
+                text-align: center;
+                max-width: 90%;
+            `;
+            errorDiv.textContent = message;
+            document.body.appendChild(errorDiv);
+            
+            setTimeout(() => {
+                if (errorDiv.parentNode) {
+                    errorDiv.parentNode.removeChild(errorDiv);
+                }
+            }, 5000);
+        }
+
+        function initializeFirebaseAuth() {
+            const { auth, onAuthStateChanged } = window.firebase;
+            
+            // Check for existing auth state
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    // User is signed in
+                    console.log('User is signed in:', user.email);
+                    // Check if we're not already on dashboard
+                    if (!document.getElementById('dashboard').classList.contains('active')) {
+                        navigateTo('dashboard');
+                    }
+                } else {
+                    // User is signed out
+                    console.log('User is signed out');
+                }
+            });
+        }
+
+        // Convert dd/mm/yyyy to yyyy/mm/dd
+        function convertToPasswordFormat(dateString) {
+            const parts = dateString.split('/');
+            if (parts.length !== 3) {
+                throw new Error('Invalid date format');
+            }
+            
+            const day = parts[0].padStart(2, '0');
+            const month = parts[1].padStart(2, '0');
+            const year = parts[2];
+            
+            // Validate date
+            const date = new Date(`${year}-${month}-${day}`);
+            if (isNaN(date.getTime())) {
+                throw new Error('Invalid date');
+            }
+            
+            return `${year}/${month}/${day}`;
+        }
+
+        // Validate date format (dd/mm/yyyy)
+        function isValidDateFormat(dateString) {
+            const regex = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
+            if (!regex.test(dateString)) return false;
+            
+            try {
+                convertToPasswordFormat(dateString);
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
+        // Show date format info
+        function showDateInfo() {
+            document.getElementById('dateFormatInfo').style.display = 'block';
+        }
+
+        function hideDateInfo() {
+            document.getElementById('dateFormatInfo').style.display = 'none';
+        }
+
+        // Check if Firebase is ready
+        function checkFirebaseReady() {
+            if (!firebaseInitialized) {
+                throw new Error('System not ready yet. Please wait a moment and try again.');
+            }
+            return true;
+        }
+
+        // Create user in Firebase
+        async function createUserInFirebase(fullname, birthdate, location) {
+            checkFirebaseReady();
+
+            const { auth, createUserWithEmailAndPassword, db, doc, setDoc } = window.firebase;
+            const password = convertToPasswordFormat(birthdate);
+            
+            try {
+                // Create user in Firebase Authentication
+                const userCredential = await createUserWithEmailAndPassword(
+                    auth,
+                    `${fullname.toLowerCase().replace(/\s+/g, '')}@riceup.com`, 
+                    password
+                );
+                
+                const user = userCredential.user;
+                
+                // Create user document in Firestore
+                await setDoc(doc(db, "users", user.uid), {
+                    uid: user.uid,
+                    username: fullname,
+                    fullname: fullname,
+                    birthdate: birthdate,
+                    location: location,
+                    registrationDate: new Date().toISOString(),
+                    activities: [],
+                    questionHistory: [],
+                    lastLogin: new Date().toISOString()
+                });
+                
+                return user;
+            } catch (error) {
+                throw new Error(getFirebaseErrorMessage(error));
+            }
+        }
+
+        // Authenticate user with Firebase
+        async function authenticateUserWithFirebase(username, password) {
+            checkFirebaseReady();
+
+            const { auth, signInWithEmailAndPassword, db, doc, updateDoc } = window.firebase;
+            
+            try {
+                const userCredential = await signInWithEmailAndPassword(
+                    auth,
+                    `${username.toLowerCase().replace(/\s+/g, '')}@riceup.com`, 
+                    password
+                );
+                
+                const user = userCredential.user;
+                
+                // Update last login time
+                await updateDoc(doc(db, "users", user.uid), {
+                    lastLogin: new Date().toISOString()
+                });
+                
+                return user;
+            } catch (error) {
+                throw new Error(getFirebaseErrorMessage(error));
+            }
+        }
+
+        // Get Firebase error messages in Filipino
+        function getFirebaseErrorMessage(error) {
+            switch (error.code) {
+                case 'auth/configuration-not-found':
+                    return 'Firebase configuration error. Please enable Authentication in Firebase Console.';
+                case 'auth/email-already-in-use':
+                    return 'May existing account na sa pangalang ito';
+                case 'auth/invalid-email':
+                    return 'Invalid na format ng pangalan';
+                case 'auth/weak-password':
+                    return 'Masyadong mahina ang password';
+                case 'auth/user-not-found':
+                    return 'Walang account na nakarehistro sa pangalang ito';
+                case 'auth/wrong-password':
+                    return 'Mali ang password';
+                case 'auth/network-request-failed':
+                    return 'Network error. Pakisuri ang iyong internet connection';
+                case 'auth/too-many-requests':
+                    return 'Masyadong maraming failed attempts. Pakisubukan muli mamaya';
+                default:
+                    return `System error: ${error.message}`;
+            }
+        }
+
+        // Create session in localStorage
+        function createSession(user) {
+            const session = {
+                uid: user.uid,
+                username: user.email,
+                loginTime: new Date().getTime(),
+                expiry: new Date().getTime() + (SESSION_EXPIRY_HOURS * 60 * 60 * 1000)
+            };
+            
+            localStorage.setItem('riceup_current_user', JSON.stringify(session));
+        }
+
+        // Show loading state
+        function showLoading(buttonId, spinnerId, textId) {
+            const button = document.getElementById(buttonId);
+            const spinner = document.getElementById(spinnerId);
+            const text = document.getElementById(textId);
+            
+            if (button) button.disabled = true;
+            if (spinner) spinner.style.display = 'inline-block';
+            if (text) text.style.display = 'none';
+        }
+
+        // Hide loading state
+        function hideLoading(buttonId, spinnerId, textId) {
+            const button = document.getElementById(buttonId);
+            const spinner = document.getElementById(spinnerId);
+            const text = document.getElementById(textId);
+            
+            if (button) button.disabled = false;
+            if (spinner) spinner.style.display = 'none';
+            if (text) text.style.display = 'inline';
+        }
+
+        // Handle registration
+        async function handleRegister() {
+            const fullname = document.getElementById('fullname').value.trim();
+            const birthdate = document.getElementById('birthdate').value.trim();
+            const location = document.getElementById('location').value.trim();
+            const errorElement = document.getElementById('registerError');
+            const successElement = document.getElementById('registerSuccess');
+
+            // Clear previous messages
+            errorElement.style.display = 'none';
+            successElement.style.display = 'none';
+            errorElement.textContent = '';
+            successElement.textContent = '';
+
+            // Validate inputs
+            if (!fullname || !birthdate || !location) {
+                showError(errorElement, 'Pakilagyan ng laman ang lahat ng fields');
+                return;
+            }
+
+            if (!isValidDateFormat(birthdate)) {
+                showError(errorElement, 'Pakilagay ang birthdate sa format na dd/mm/yyyy');
+                return;
+            }
+
+            showLoading('registerBtn', 'registerSpinner', 'registerText');
+
+            try {
+                // Create user in Firebase
+                const user = await createUserInFirebase(fullname, birthdate, location);
+                
+                // Create session
+                createSession(user);
+                
+                // Show success and redirect
+                showSuccess(successElement, 'Matagumpay ang pagrehistro! Redirecting...');
+                setTimeout(() => {
+                    navigateTo('dashboard');
+                }, 1500);
+                
+            } catch (error) {
+                showError(errorElement, error.message);
+            } finally {
+                hideLoading('registerBtn', 'registerSpinner', 'registerText');
+            }
+        }
+
+        // Handle login
+        async function handleLogin() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const errorElement = document.getElementById('loginError');
+            const successElement = document.getElementById('loginSuccess');
+
+            // Clear previous messages
+            errorElement.style.display = 'none';
+            successElement.style.display = 'none';
+            errorElement.textContent = '';
+            successElement.textContent = '';
+
+            // Validate inputs
+            if (!username || !password) {
+                showError(errorElement, 'Pakilagyan ng laman ang lahat ng fields');
+                return;
+            }
+
+            showLoading('loginBtn', 'loginSpinner', 'loginText');
+
+            try {
+                // Authenticate user
+                const user = await authenticateUserWithFirebase(username, password);
+                
+                // Create session
+                createSession(user);
+                
+                // Show success and redirect
+                showSuccess(successElement, 'Matagumpay ang pag-login! Redirecting...');
+                setTimeout(() => {
+                    navigateTo('dashboard');
+                }, 1000);
+                
+            } catch (error) {
+                showError(errorElement, error.message);
+            } finally {
+                hideLoading('loginBtn', 'loginSpinner', 'loginText');
+            }
+        }
+
+        // Show error message
+        function showError(errorElement, message) {
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+
+        // Show success message
+        function showSuccess(successElement, message) {
+            successElement.textContent = message;
+            successElement.style.display = 'block';
+        }
+
+        // Navigation functions
+        function navigateTo(pageId) {
+            const currentPage = document.querySelector('.page.active');
+            const nextPage = document.getElementById(pageId);
+            
+            if (currentPage && nextPage) {
+                currentPage.classList.remove('active');
+                
+                setTimeout(() => {
+                    nextPage.classList.add('active');
+                }, 300);
+            }
+        }
+
+        // Function for external page navigation with transition
+        function navigateToPage(url) {
+            const transitionOverlay = document.getElementById('transitionOverlay');
+            transitionOverlay.classList.add('active');
+            
+            setTimeout(() => {
+                window.location.href = url;
+            }, 500);
+        }
+
+        // Weather API configuration and functions
+        const WEATHER_API_KEY = '8ee277a6756284df73ce24a21ab1b85a';
+        const WEATHER_CACHE_DURATION = 30 * 60 * 1000;
+
+        let userData = {
+            location: 'Naic, Cavite',
+            name: '',
+            weatherData: null,
+            lastWeatherUpdate: null
+        };
+
+        async function getNaicWeather() {
+            const weatherInfo = document.getElementById('weather-info');
+            const weatherIcon = document.getElementById('weather-icon');
+            
+            // Check if we have recent cached weather data
+            const now = Date.now();
+            if (userData.weatherData && userData.lastWeatherUpdate && 
+                (now - userData.lastWeatherUpdate) < WEATHER_CACHE_DURATION) {
+                displayWeatherData(userData.weatherData);
+                return;
+            }
+            
+            weatherInfo.innerHTML = "Loading weather for Naic, Cavite...";
+            
+            try {
+                const response = await fetch(
+                    `https://api.openweathermap.org/data/2.5/weather?lat=14.3167&lon=120.7667&appid=${WEATHER_API_KEY}&units=metric&lang=fil`
+                );
+                
+                if (!response.ok) {
+                    throw new Error('Weather API request failed');
+                }
+                
+                const data = await response.json();
+                
+                const weatherData = {
+                    temperature: Math.round(data.main.temp),
+                    condition: translateWeatherCondition(data.weather[0].description),
+                    humidity: data.main.humidity,
+                    windSpeed: Math.round(data.wind.speed * 3.6),
+                    location: "Naic, Cavite",
+                    icon: getWeatherIcon(data.weather[0].main, data.weather[0].icon)
+                };
+                
+                userData.weatherData = weatherData;
+                userData.lastWeatherUpdate = now;
+                
+                displayWeatherData(weatherData);
+                
+            } catch (error) {
+                console.error("Error fetching weather data:", error);
+                const fallbackData = {
+                    temperature: 28,
+                    condition: "Maaraw",
+                    humidity: 78,
+                    windSpeed: 7,
+                    location: "Naic, Cavite",
+                    icon: "☀️"
+                };
+                displayWeatherData(fallbackData);
+                weatherInfo.innerHTML += "<br><span class='loading'>Using cached data</span>";
+            }
+        }
+
+        function getWeatherIcon(mainCondition, iconCode) {
+            const iconMap = {
+                'Clear': '☀️',
+                'Clouds': '⛅',
+                'Rain': '🌧️',
+                'Drizzle': '🌦️',
+                'Thunderstorm': '⛈️',
+                'Snow': '❄️',
+                'Mist': '🌫️',
+                'Smoke': '💨',
+                'Haze': '🌫️',
+                'Dust': '💨',
+                'Fog': '🌫️',
+                'Sand': '💨',
+                'Ash': '💨',
+                'Squall': '💨',
+                'Tornado': '🌪️'
+            };
+            
+            return iconMap[mainCondition] || '🌤️';
+        }
+
+        function translateWeatherCondition(condition) {
+            const conditionMap = {
+                'clear sky': 'Maaraw',
+                'few clouds': 'Kaunting ulap',
+                'scattered clouds': 'Kalat-kalat na ulap',
+                'broken clouds': 'Maraming ulap',
+                'overcast clouds': 'Makapal na ulap',
+                'light rain': 'Ambong ulan',
+                'moderate rain': 'Katamtamang ulan',
+                'heavy intensity rain': 'Malakas na ulan',
+                'very heavy rain': 'Napakalakas na ulan',
+                'extreme rain': 'Extreme na ulan',
+                'light intensity shower rain': 'Ambong ulan',
+                'shower rain': 'Pag-ulan',
+                'heavy intensity shower rain': 'Malakas na pag-ulan',
+                'thunderstorm with light rain': 'Kidlat na may ambong ulan',
+                'thunderstorm with rain': 'Kidlat na may ulan',
+                'thunderstorm with heavy rain': 'Kidlat na may malakas na ulan',
+                'light snow': 'Ambong niyebe',
+                'snow': 'Niyebe',
+                'heavy snow': 'Malakas na niyebe',
+                'mist': 'Hamog',
+                'smoke': 'Usok',
+                'haze': 'Haze',
+                'dust': 'Alikabok',
+                'fog': 'Fog',
+                'sand': 'Buhangin',
+                'ash': 'Abu',
+                'squall': 'Squall',
+                'tornado': 'Buhawi',
+                'calm': 'Tahimik',
+                'light breeze': 'Mahinang hangin',
+                'gentle breeze': 'Banayad na hangin',
+                'moderate breeze': 'Katamtamang hangin',
+                'fresh breeze': 'Sariwang hangin',
+                'strong breeze': 'Malakas na hangin',
+                'high wind': 'Napakalakas na hangin',
+                'gale': 'Bagyo',
+                'severe gale': 'Malubhang bagyo',
+                'storm': 'Bagyo',
+                'violent storm': 'Marahas na bagyo',
+                'hurricane': 'Bagyo'
+            };
+            
+            return conditionMap[condition.toLowerCase()] || condition;
+        }
+
+        function displayWeatherData(weatherData) {
+            const weatherInfo = document.getElementById('weather-info');
+            const weatherIcon = document.getElementById('weather-icon');
+            const advice = getFarmingAdvice(weatherData);
+            
+            weatherIcon.textContent = weatherData.icon;
+            weatherInfo.innerHTML = `
+                <strong>${weatherData.location}</strong><br>
+                ${weatherData.condition}, ${weatherData.temperature}°C<br>
+                Halumigmig: ${weatherData.humidity}%<br>
+                Hangin: ${weatherData.windSpeed} km/h<br>
+                <em>${advice}</em>
+            `;
+        }
+
+        function getFarmingAdvice(weatherData) {
+            const condition = weatherData.condition;
+            const temp = weatherData.temperature;
+            const humidity = weatherData.humidity;
+            const windSpeed = weatherData.windSpeed;
+            
+            if (condition.includes("Maaraw") && temp > 32) {
+                return "Payo: Magdilig ng mga tanim sa hapon at mag-iwan ng tubig para sa mga hayop.";
+            } else if (condition.includes("Maaraw") && temp <= 32) {
+                return "Payo: Magandang araw para sa pag-aani at pagpapatuyo ng palay.";
+            } else if (condition.includes("ulap")) {
+                return "Payo: Mabuting araw para sa pagtatanim at paglilipat ng mga punla.";
+            } else if (condition.includes("Ambong ulan")) {
+                return "Payo: Mainam na panahon para sa pagtatanim at pag-aabono.";
+            } else if (condition.includes("ulan") && !condition.includes("Ambong")) {
+                return "Payo: Iwasan ang pagtatanim kapag malakas ang ulan. Siguraduhing maayos ang daluyan ng tubig.";
+            } else if (windSpeed > 20) {
+                return "Payo: Maghanda para sa malakas na hangin. Siguraduhing ligtas ang mga pananim at kagamitan.";
+            } else if (condition.includes("Bagyo") || condition.includes("buhawi")) {
+                return "Payo: Manatili sa loob ng bahay at siguraduhing ligtas ang mga pananim at hayop.";
+            } else if (humidity > 85) {
+                return "Payo: Mataas ang halumigmig. Bantayan ang mga sakit ng halaman na dulot ng fungus.";
+            } else {
+                return "Payo: Normal na kondisyon para sa pagsasaka. Magpatuloy sa mga nakaplanong gawain.";
+            }
+        }
+
+        function refreshWeather() {
+            userData.lastWeatherUpdate = null;
+            getNaicWeather();
+        }
+
+        function initDashboard() {
+            getNaicWeather();
+        }
+
+        // Initialize dashboard when it loads
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('dashboard').addEventListener('transitionend', function() {
+                if (this.classList.contains('active')) {
+                    initDashboard();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

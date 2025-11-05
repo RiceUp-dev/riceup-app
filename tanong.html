@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RiceUp - Ask Juan</title>
+    
+    <!-- Add Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAzj34ncOS8oilRwAvquFHHaznwd0JRkZY",
+            authDomain: "riceup-8ac2f.firebaseapp.com",
+            projectId: "riceup-8ac2f",
+            storageBucket: "riceup-8ac2f.firebasestorage.app",
+            messagingSenderId: "1011803681191",
+            appId: "1:1011803681191:web:c1bc0c73d10b5897aac682",
+            measurementId: "G-KGWR4CWE7D"
+        };
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+
+            window.firebase = {
+                app,
+                auth,
+                db,
+                onAuthStateChanged,
+                signOut,
+                doc,
+                getDoc,
+                updateDoc,
+                arrayUnion,
+                initialized: true
+            };
+        } catch (error) {
+            console.error('Firebase initialization error:', error);
+            window.firebase = { initialized: false, error: error.message };
+        }
+    </script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #FFF9E6;
+            color: #5C4033;
+            line-height: 1.6;
+            padding-bottom: 70px;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 0px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 0px;
+            background-color: #6B8E23;
+            border-radius: 0px;
+            color: white;
+            position: relative;
+            height: 100px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header-image {
+            width: 100%;
+            height: auto;
+            border-radius: 0px;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .chat-container {
+            background-color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            height: calc(100vh - 250px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-height: 0;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            line-height: 1.4;
+            word-wrap: break-word;
+            flex-shrink: 0;
+        }
+
+        .juan-message {
+            background-color: #5B3A29;
+            color: #FFFFFF;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+        }
+
+        .user-message {
+            background-color: #768E4F;
+            color: #FFFFFF;
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+        }
+
+        .question-options-container {
+            max-height: 200px;
+            overflow-y: auto;
+            border-top: 1px solid #F8F0E4;
+            padding-top: 15px;
+        }
+
+        .question-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .question-btn {
+            background-color: #F8F0E4;
+            color: #5C4033;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            padding: 12px 16px;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .question-btn:hover {
+            background-color: #e8e0d4;
+            transform: translateY(-2px);
+        }
+
+        .hide-questions-btn {
+            background-color: #5B3A29;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 12px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+            margin-top: 10px;
+            flex-shrink: 0;
+        }
+
+        .hide-questions-btn:hover {
+            background-color: #4a2e20;
+            transform: translateY(-2px);
+        }
+
+        .show-questions-btn {
+            background-color: #6B8E23;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 12px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+            margin-top: 10px;
+            width: 100%;
+            flex-shrink: 0;
+        }
+
+        .show-questions-btn:hover {
+            background-color: #5a7d1a;
+            transform: translateY(-2px);
+        }
+
+        .juan-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #5B3A29;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+
+        .message-container {
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .message-container.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: rgba(255,255,255,0.7);
+            margin-top: 5px;
+            align-self: flex-end;
+        }
+
+        .user-message .message-time {
+            align-self: flex-start;
+        }
+
+        .history-section {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #F8F0E4;
+            border-radius: 10px;
+        }
+
+        .history-section h4 {
+            margin-bottom: 10px;
+            color: #5C4033;
+        }
+
+        .history-item {
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            background-color: white;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .history-item:hover {
+            background-color: #F8E6B0;
+        }
+
+        /* Scrollbar styling */
+        .chat-messages::-webkit-scrollbar,
+        .question-options-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track,
+        .question-options-container::-webkit-scrollbar-track {
+            background: #F8F0E4;
+            border-radius: 10px;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb,
+        .question-options-container::-webkit-scrollbar-thumb {
+            background: #5B3A29;
+            border-radius: 10px;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb:hover,
+        .question-options-container::-webkit-scrollbar-thumb:hover {
+            background: #4a2e20;
+        }
+
+        /* Full Width Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #5B3A29;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 12px 0;
+            z-index: 100;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: white;
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 25px;
+            transition: all 0.3s;
+            flex: 1;
+            text-align: center;
+            margin: 0 5px;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-item:hover {
+            background-color: #6B8E23;
+            transform: translateY(-3px);
+        }
+
+        .nav-icon {
+            font-size: 1.2rem;
+            margin-bottom: 3px;
+        }
+
+        .nav-label {
+            font-size: 0.8rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 10px;
+            color: #666;
+            font-style: italic;
+        }
+
+        @media (max-width: 600px) {
+            header {
+                height: 90px;
+            }
+            
+            .chat-container {
+                height: calc(100vh - 220px);
+            }
+            
+            .message {
+                max-width: 85%;
+            }
+            
+            .question-options-container {
+                max-height: 150px;
+            }
+            
+            .nav-label {
+                font-size: 0.7rem;
+            }
+            
+            .nav-icon {
+                font-size: 1rem;
+            }
+            
+            .nav-item {
+                padding: 6px 8px;
+                margin: 0 3px;
+            }
+            
+            .bottom-nav {
+                border-top-left-radius: 15px;
+                border-top-right-radius: 15px;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <img src="https://uploads.onecompiler.io/4437779jy/443776xrn/tanongTitle.jpg" alt="Ask Juan" class="header-image">
+        </header>
+
+        <div class="chat-container">
+            <div class="chat-messages" id="chatMessages">
+                <!-- Messages will be added here by JavaScript -->
+            </div>
+            
+            <div class="question-options-container" id="questionOptionsContainer">
+                <div class="question-options" id="questionOptions">
+                    <!-- Question buttons will be added here by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <div class="history-section" id="historySection" style="display: none;">
+            <h4>Iyong Nakaraang mga Tanong</h4>
+            <div id="questionHistory">
+                <!-- Question history will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Full Width Bottom Navigation -->
+    <nav class="bottom-nav">
+        <a href="kalendaryo.html" class="nav-item">
+            <i class="fas fa-calendar-alt nav-icon"></i>
+            <span class="nav-label">Kalendaryo ng Pagsasaka</span>
+        </a>
+        <a href="suriin.html" class="nav-item">
+            <i class="fas fa-search nav-icon"></i>
+            <span class="nav-label">Suriin ang Palay</span>
+        </a>
+        <a href="presyo.html" class="nav-item">
+            <i class="fas fa-tag nav-icon"></i>
+            <span class="nav-label">Presyo ng Palay</span>
+        </a>
+        <a href="index.html" class="nav-item">
+            <i class="fas fa-sign-out-alt nav-icon"></i>
+            <span class="nav-label">Log Out</span>
+        </a>
+    </nav>
+
+    <script>
+        // Frequently asked questions and answers
+        const faqData = [
+            {
+                question: "Ano ang tamang oras ng pagtatanim ng palay?",
+                answer: "Ang tamang oras ng pagtatanim ng palay ay depende sa uri ng palay at lokasyon. Sa Pilipinas, karaniwang nagtatanim sa panahon ng tag-ulan (Hunyo hanggang Setyembre) para sa wet season cropping, at sa panahon ng tag-araw (Nobyembre hanggang Abril) para sa dry season cropping gamit ang irigasyon."
+            },
+            {
+                question: "Paano malalaman kung handa nang anihin ang palay?",
+                answer: "Ang palay ay handa nang anihin kapag 80-85% ng mga butil ay kulay dilaw na at matigas na. Karaniwang 110-120 araw pagkatapos magtanim para sa karamihan ng varieties. Tiyaking tuyo ang mga butil bago anihin upang maiwasan ang pagkasira ng ani."
+            },
+            {
+                question: "Ano ang mga karaniwang sakit ng palay at paano ito gamutin?",
+                answer: "Mga karaniwang sakit: 1) Rice Blast - gumamit ng resistant varieties at fungicides, 2) Bacterial Leaf Blight - iwasan ang sobrang nitrogen, 3) Sheath Blight - gumamit ng fungicides at tamang spacing. Laging sumangguni sa agricultural technician para sa tamang diagnosis at treatment."
+            },
+            {
+                question: "Anong fertilizer ang pinakamabisa para sa palay?",
+                answer: "Ang pinakamabisa ay balanced fertilizer na may NPK ratio na 14-14-14 o 16-16-16. Maglagay ng 4-6 bags bawat ektarya, depende sa lupa. Mas mainam na magpa-soil testing muna upang malaman ang eksaktong pangangailangan ng iyong lupa."
+            },
+            {
+                question: "Paano mapapataas ang ani ng palay?",
+                answer: "1) Gumamit ng certified seeds, 2) Tamang spacing (20x20 cm), 3) Balanced fertilization, 4) Maayos na water management, 5) Kontrol sa peste at sakit, 6) Tamang oras ng pag-aani. Sumali sa mga farmer's training para sa mga bagong teknolohiya."
+            },
+            {
+                question: "Ano ang integrated pest management para sa palay?",
+                answer: "Ang IPM ay kombinasyon ng: 1) Biological control (gamit ng natural na predators), 2) Cultural practices (tamang spacing at sanitation), 3) Mechanical control (manual removal), 4) Chemical control (pesticides bilang huling opsyon). Layunin nito ang sustainable pest control."
+            },
+            {
+                question: "Gaano karaming tubig ang kailangan ng palay?",
+                answer: "Ang palay ay nangangailangan ng 1,000-1,500 mm ng tubig sa buong growth period. Sa vegetative stage, panatilihin ang 2-5 cm na tubig. Sa reproductive stage, 5-10 cm. Bago anihin, patuyuin ang field ng 7-10 araw bago ang harvest."
+            },
+            {
+                question: "Kailan dapat mag-aplay ng pesticide?",
+                answer: "Mag-aplay ng pesticide sa umaga o dapit-hapon kapag mahinahon ang hangin. Iwasan ang pag-spray kapag mainit ang panahon o maulan. Sundin ang tamang dosage at safety precautions. Mas mainam na mag-monitor muna ng pest population bago mag-decide mag-spray."
+            },
+            {
+                question: "Sino ang mga gumawa ng program na ito?",
+                answer: "Ang gumawa ng program na ito ay ang mga mananaliksik galing sa De La Salle University - Dasmarinas, Daniel Planada, Rojean Penano, at Khrystel Guisihan."
+            },
+            {
+                question: "Ano ang mga ginamit na programming language para dito?",
+                answer: "Python, HTML, CSS, at iba pa."
+            },
+            {
+                question: "Bakit ginawa ang program na ito?",
+                answer: "Nais ng mga mananaliksik na tulungan umunlad at makuha ng mga magsasaka ang nararapat na atensyon sakanila, sa pamamagitan nitong app, gusto nila matulungan na gumaan ang trabaho ng ating mga mag-papalay."
+            }
+        ];
+
+        // DOM elements
+        const chatMessages = document.getElementById('chatMessages');
+        const questionOptions = document.getElementById('questionOptions');
+        const questionOptionsContainer = document.getElementById('questionOptionsContainer');
+        const historySection = document.getElementById('historySection');
+        const questionHistory = document.getElementById('questionHistory');
+
+        // Track if questions are currently hidden
+        let questionsHidden = false;
+        let currentUser = null;
+        let firebaseReady = false;
+
+        // Wait for Firebase to initialize
+        const firebaseCheck = setInterval(() => {
+            if (window.firebase && window.firebase.initialized) {
+                clearInterval(firebaseCheck);
+                firebaseReady = true;
+                initializeApp();
+            }
+        }, 100);
+
+        async function initializeApp() {
+            const { auth, onAuthStateChanged } = window.firebase;
+            
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    currentUser = user;
+                    await initChat();
+                    await loadQuestionHistory();
+                } else {
+                    // Redirect to login if not authenticated
+                    window.location.href = '/';
+                }
+            });
+        }
+
+        // Load user question history from Firebase
+        async function loadQuestionHistory() {
+            if (!firebaseReady || !currentUser) return [];
+            
+            const { db, doc, getDoc } = window.firebase;
+            
+            try {
+                const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    return userData.questionHistory || [];
+                }
+                return [];
+            } catch (error) {
+                console.error('Error loading question history:', error);
+                return [];
+            }
+        }
+
+        // Save question to user history in Firebase
+        async function saveQuestionToHistory(question, answer) {
+            if (!firebaseReady || !currentUser) return;
+            
+            const { db, doc, updateDoc, arrayUnion } = window.firebase;
+            
+            const historyItem = {
+                question: question,
+                answer: answer,
+                timestamp: new Date().toISOString(),
+                date: new Date().toLocaleDateString('en-PH')
+            };
+            
+            try {
+                await updateDoc(doc(db, "users", currentUser.uid), {
+                    questionHistory: arrayUnion(historyItem)
+                });
+            } catch (error) {
+                console.error('Error saving question history:', error);
+            }
+        }
+
+        // Display question history
+        async function displayQuestionHistory() {
+            const history = await loadQuestionHistory();
+            questionHistory.innerHTML = '';
+            
+            if (history.length === 0) {
+                questionHistory.innerHTML = '<div class="loading">Wala pang nakaraang mga tanong.</div>';
+                return;
+            }
+            
+            // Sort by timestamp (newest first)
+            const sortedHistory = [...history].sort((a, b) => 
+                new Date(b.timestamp) - new Date(a.timestamp)
+            );
+            
+            sortedHistory.forEach(item => {
+                const historyElement = document.createElement('div');
+                historyElement.className = 'history-item';
+                historyElement.innerHTML = `
+                    <strong>${item.date}</strong><br>
+                    ${item.question}
+                `;
+                historyElement.addEventListener('click', () => {
+                    // Show the question and answer again
+                    addUserMessage(item.question);
+                    setTimeout(() => {
+                        addJuanMessage(item.answer);
+                    }, 1000);
+                });
+                questionHistory.appendChild(historyElement);
+            });
+        }
+
+        // Initialize chat
+        async function initChat() {
+            // Add welcome message
+            addJuanMessage("Kumusta! Ako si Juan, ang iyong kaagapay sa pagsasaka ng palay. Paano kita matutulungan ngayon?");
+            
+            // Display question options
+            displayQuestionOptions();
+            
+            // Load and display question history
+            await displayQuestionHistory();
+            historySection.style.display = 'block';
+        }
+
+        // Add Juan's message to chat
+        function addJuanMessage(message) {
+            const messageContainer = document.createElement('div');
+            messageContainer.className = 'message-container';
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'juan-avatar';
+            avatar.textContent = 'J';
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message juan-message';
+            messageElement.textContent = message;
+            
+            const timeElement = document.createElement('div');
+            timeElement.className = 'message-time';
+            timeElement.textContent = getCurrentTime();
+            
+            messageContent.appendChild(messageElement);
+            messageContent.appendChild(timeElement);
+            
+            messageContainer.appendChild(avatar);
+            messageContainer.appendChild(messageContent);
+            
+            chatMessages.appendChild(messageContainer);
+            scrollToBottom();
+        }
+
+        // Add user's message to chat
+        function addUserMessage(message) {
+            const messageContainer = document.createElement('div');
+            messageContainer.className = 'message-container user';
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message user-message';
+            messageElement.textContent = message;
+            
+            const timeElement = document.createElement('div');
+            timeElement.className = 'message-time';
+            timeElement.textContent = getCurrentTime();
+            
+            messageContent.appendChild(messageElement);
+            messageContent.appendChild(timeElement);
+            
+            messageContainer.appendChild(messageContent);
+            
+            chatMessages.appendChild(messageContainer);
+            scrollToBottom();
+        }
+
+        // Display question options
+        function displayQuestionOptions() {
+            questionOptions.innerHTML = '';
+            
+            faqData.forEach((faq, index) => {
+                const button = document.createElement('button');
+                button.className = 'question-btn';
+                button.textContent = faq.question;
+                button.addEventListener('click', () => {
+                    selectQuestion(index);
+                });
+                questionOptions.appendChild(button);
+            });
+            
+            // Add "Itago ang mga tanong" button
+            const hideButton = document.createElement('button');
+            hideButton.className = 'hide-questions-btn';
+            hideButton.textContent = 'Itago ang mga tanong';
+            hideButton.addEventListener('click', hideQuestions);
+            questionOptions.appendChild(hideButton);
+            
+            // Scroll question options to top
+            questionOptionsContainer.scrollTop = 0;
+        }
+
+        // Hide question options
+        function hideQuestions() {
+            questionOptions.innerHTML = '';
+            questionsHidden = true;
+            
+            // Add "Ipakita ang mga tanong" button
+            const showButton = document.createElement('button');
+            showButton.className = 'show-questions-btn';
+            showButton.textContent = 'Ipakita ang mga tanong';
+            showButton.addEventListener('click', showQuestions);
+            questionOptions.appendChild(showButton);
+        }
+
+        // Show question options
+        function showQuestions() {
+            displayQuestionOptions();
+            questionsHidden = false;
+        }
+
+        // Handle question selection
+        async function selectQuestion(index) {
+            const selectedQuestion = faqData[index].question;
+            const answer = faqData[index].answer;
+            
+            // Add user's question to chat
+            addUserMessage(selectedQuestion);
+            
+            // Clear question options
+            questionOptions.innerHTML = '';
+            
+            // Save to user history
+            await saveQuestionToHistory(selectedQuestion, answer);
+            
+            // Simulate Juan typing
+            setTimeout(() => {
+                addJuanMessage(answer);
+                
+                // Show question options again after a delay
+                setTimeout(() => {
+                    if (questionsHidden) {
+                        hideQuestions();
+                    } else {
+                        displayQuestionOptions();
+                    }
+                    
+                    // Refresh question history
+                    displayQuestionHistory();
+                }, 1000);
+            }, 1000);
+        }
+
+        // Get current time in HH:MM format
+        function getCurrentTime() {
+            const now = new Date();
+            return now.getHours().toString().padStart(2, '0') + ':' + 
+                   now.getMinutes().toString().padStart(2, '0');
+        }
+
+        // Scroll chat to bottom
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    </script>
+</body>
+</html>

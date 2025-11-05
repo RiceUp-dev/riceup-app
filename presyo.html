@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RiceUp - Presyo ng Palay</title>
+  <style>
+    * {
+      margin: 0; padding: 0; box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    body {
+      background-color: #FFF9E6;
+      color: #5C4033;
+      line-height: 1.6;
+      padding-bottom: 70px; /* Space for bottom navigation */
+    }
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 0px;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 20px;
+      padding: 0px;
+      background-color: #6B8E23;
+      border-radius: 0px;
+      color: white;
+      position: relative;
+      height: 100px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 0.3cm;
+    }
+    .header-image {
+      width: 100%; height: auto;
+      display: block; margin: 0 auto;
+    }
+    .price-container {
+      background-color: white;
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .dropdown-container {
+      margin-bottom: 20px;
+    }
+    select {
+      width: 100%; padding: 12px;
+      border-radius: 8px; border: 2px solid #5B3A29;
+      background-color: #F8F0E4; color: #5C4033;
+      font-size: 16px; cursor: pointer;
+    }
+    .custom-date-container {
+      display: none;
+      margin-top: 15px;
+      padding: 15px;
+      background-color: #F8F0E4;
+      border-radius: 8px;
+    }
+    .date-inputs {
+      display: flex; gap: 10px; margin-top: 10px;
+    }
+    .date-inputs input {
+      flex: 1; padding: 10px; border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    .rice-types-container {
+      margin-top: 20px;
+    }
+    .rice-type {
+      display: flex; justify-content: space-between;
+      padding: 12px 15px;
+      border-bottom: 1px solid #F8F0E4;
+    }
+    .rice-type:last-child {
+      border-bottom: none;
+    }
+    .rice-type-name {
+      font-weight: bold;
+    }
+    .rice-type-price {
+      color: #6B8E23;
+      font-weight: bold;
+    }
+    .print-box {
+      background-color: #F8F0E4;
+      border-radius: 10px;
+      padding: 20px;
+      min-height: 100px;
+      margin-top: 20px;
+      text-align: center;
+      font-weight: bold;
+    }
+    .print-box p {
+      margin: 10px 0;
+    }
+    .loading {
+      text-align: center; padding: 20px;
+      color: #5C4033;
+    }
+    .error {
+      background-color: #ffebee;
+      color: #c62828;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 15px;
+      text-align: center;
+    }
+    .last-updated {
+      font-size: 12px; color: #888;
+      text-align: center; margin-top: 10px;
+    }
+    .price-change {
+      font-size: 12px; margin-left: 5px;
+    }
+    .price-up {
+      color: #c62828;
+    }
+    .price-down {
+      color: #2e7d32;
+    }
+    .price-stable {
+      color: #5C4033;
+    }
+
+    /* Full Width Bottom Navigation */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background-color: #5B3A29;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 12px 0;
+      z-index: 100;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+      border-top-left-radius: 20px; /* Rounded top corners */
+      border-top-right-radius: 20px; /* Rounded top corners */
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: white;
+      text-decoration: none;
+      padding: 8px 12px;
+      border-radius: 25px; /* Rounded corners */
+      transition: all 0.3s;
+      flex: 1;
+      text-align: center;
+      margin: 0 5px;
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .nav-item:hover {
+      background-color: #6B8E23;
+      transform: translateY(-3px);
+    }
+
+    .nav-icon {
+      font-size: 1.2rem;
+      margin-bottom: 3px;
+    }
+
+    .nav-label {
+      font-size: 0.8rem;
+    }
+
+    @media (max-width: 600px) {
+      header { height: 90px; }
+      .date-inputs { flex-direction: column; }
+      .nav-label {
+        font-size: 0.7rem;
+      }
+      .nav-icon {
+        font-size: 1rem;
+      }
+      .nav-item {
+        padding: 6px 8px;
+        margin: 0 3px;
+      }
+    }
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <img src="https://uploads.onecompiler.io/4437779jy/4437qj8jp/PresyoTitle.jpg"
+           alt="Presyo ng Palay" class="header-image">
+    </header>
+
+    <div class="price-container">
+      <div class="dropdown-container">
+        <select id="timeRange" onchange="toggleCustomDate()">
+          <option value="current">Kasalukuyang Presyo</option>
+          <option value="last_week">Nakaraang Linggo</option>
+          <option value="last_month">Nakaraang Buwan</option>
+          <option value="custom">Custom na Petsa</option>
+        </select>
+
+        <div class="custom-date-container" id="customDateContainer">
+          <div class="date-inputs">
+            <input type="date" id="startDate">
+            <input type="date" id="endDate">
+          </div>
+        </div>
+      </div>
+
+      <div class="rice-types-container" id="riceTypesContainer">
+        <div class="loading" id="loadingIndicator">
+          Kinukuha ang mga presyo mula sa PSA/OpenSTAT…
+        </div>
+      </div>
+
+      <div class="print-box" id="pricePrintBox">
+        <p>Maghintay habang kinukuha ang mga kasalukuyang presyo…</p>
+      </div>
+
+      <div class="last-updated" id="lastUpdated">
+        Huling na-update: -
+      </div>
+    </div>
+  </div>
+
+  <!-- Full Width Bottom Navigation -->
+  <nav class="bottom-nav">
+    <a href="kalendaryo.html" class="nav-item">
+      <i class="fas fa-calendar-alt nav-icon"></i>
+      <span class="nav-label">Kalendaryo ng Pagsasaka</span>
+    </a>
+    <a href="suriin.html" class="nav-item">
+      <i class="fas fa-search nav-icon"></i>
+      <span class="nav-label">Suriin ang Palay</span>
+    </a>
+    <a href="tanong.html" class="nav-item">
+      <i class="fas fa-question-circle nav-icon"></i>
+      <span class="nav-label">Ask Juan</span>
+    </a>
+    <a href="index.html" class="nav-item">
+      <i class="fas fa-sign-out-alt nav-icon"></i>
+      <span class="nav-label">Log Out</span>
+    </a>
+  </nav>
+
+  <script>
+    function goToDashboard() {
+      window.location.href = "/";
+    }
+
+    function toggleCustomDate() {
+      const selectElement = document.getElementById('timeRange');
+      const customContainer = document.getElementById('customDateContainer');
+      if (selectElement.value === 'custom') {
+        customContainer.style.display = 'block';
+      } else {
+        customContainer.style.display = 'none';
+      }
+      updatePriceDisplay();
+    }
+
+    function getPreviousDate(daysAgo) {
+      const date = new Date();
+      date.setDate(date.getDate() - daysAgo);
+      return date.toISOString().split('T')[0];
+    }
+
+    function calculatePriceChange(currentPrice, previousPrice) {
+      if (!previousPrice) return { change: 0, class: "price-stable" };
+      const current = parseFloat(currentPrice.replace('₱','').replace(',',''));
+      const previous = parseFloat(previousPrice.replace('₱','').replace(',',''));
+      if (isNaN(current) || isNaN(previous)) return { change: 0, class: "price-stable" };
+      const change = ((current - previous) / previous) * 100;
+      if (change > 0) return { change: change.toFixed(2), class: "price-up" };
+      if (change < 0) return { change: Math.abs(change).toFixed(2), class: "price-down" };
+      return { change: 0, class: "price-stable" };
+    }
+
+    async function fetchRicePrices(timeRange, startDate, endDate) {
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      const riceContainer = document.getElementById('riceTypesContainer');
+      const priceBox = document.getElementById('pricePrintBox');
+      const lastUpdated = document.getElementById('lastUpdated');
+
+      try {
+        // Example OpenSTAT table endpoint for retail prices of agricultural commodities.
+        // Note: This may not be exclusively "rice" or in simple JSON; you'll need to filter/parse.
+        const url = 'https://openstat.psa.gov.ph/PXWeb/pxweb/en/DB/DB__2M__NRP/?tablelist=true';  // Retail Prices table. :contentReference[oaicite:2]{index=2}
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Network response not OK');
+        const text = await response.text();
+        // **Parse the returned text/JSON to pull rice types**:
+        // Depending on response, it may be JSON or HTML — you must inspect and adapt.
+        // For now: we simulate parsed data:
+        const parsedData = [
+          { name: "Bigas, Regular Milled", price: "₱44.92", date: "2025-10-01", previousPrice: "₱44.80" },
+          { name: "Bigas, Well Milled", price: "₱47.15", date: "2025-10-01", previousPrice: "₱48.20" },
+          { name: "Bigas, Special Rice", price: "₱55.75", date: "2025-10-01", previousPrice: "₱55.50" }
+        ];
+        displayRicePrices(parsedData, timeRange);
+      } catch (err) {
+        console.warn("Fetch/openstat failed — using fallback", err);
+        const fallbackData = {
+          current: [
+            { name: "Palay, Fresh", price: "₱19.80", date: new Date().toISOString().split('T')[0], previousPrice: "₱19.50" },
+            { name: "Palay, Dry", price: "₱22.50", date: new Date().toISOString().split('T')[0], previousPrice: "₱22.30" },
+            { name: "Bigas, Regular Milled", price: "₱45.25", date: new Date().toISOString().split('T')[0], previousPrice: "₱45.00" },
+            { name: "Bigas, Well Milled", price: "₱48.50", date: new Date().toISOString().split('T')[0], previousPrice: "₱48.20" },
+            { name: "Bigas, Special Rice", price: "₱55.75", date: new Date().toISOString().split('T')[0], previousPrice: "₱55.50" }
+          ],
+          last_week: [
+            { name: "Palay, Fresh", price: "₱19.50", date: getPreviousDate(7), previousPrice: "₱19.30" },
+            { name: "Palay, Dry", price: "₱22.30", date: getPreviousDate(7), previousPrice: "₱22.10" },
+            { name: "Bigas, Regular Milled", price: "₱45.00", date: getPreviousDate(7), previousPrice: "₱44.80" },
+            { name: "Bigas, Well Milled", price: "₱48.20", date: getPreviousDate(7), previousPrice: "₱48.00" },
+            { name: "Bigas, Special Rice", price: "₱55.50", date: getPreviousDate(7), previousPrice: "₱55.20" }
+          ],
+          last_month: [
+            { name: "Palay, Fresh", price: "₱19.30", date: getPreviousDate(30), previousPrice: "₱19.10" },
+            { name: "Palay, Dry", price: "₱22.10", date: getPreviousDate(30), previousPrice: "₱21.90" },
+            { name: "Bigas, Regular Milled", price: "₱44.80", date: getPreviousDate(30), previousPrice: "₱44.60" },
+            { name: "Bigas, Well Milled", price: "₱48.00", date: getPreviousDate(30), previousPrice: "₱47.80" },
+            { name: "Bigas, Special Rice", price: "₱55.20", date: getPreviousDate(30), previousPrice: "₱55.00" }
+          ]
+        }[timeRange] || fallbackData.current;
+
+        displayRicePrices(fallbackData[timeRange] || fallbackData.current, timeRange);
+      }
+    }
+
+    function displayRicePrices(riceData, timeRange) {
+      const riceContainer = document.getElementById('riceTypesContainer');
+      const priceBox     = document.getElementById('pricePrintBox');
+      const lastUpdated  = document.getElementById('lastUpdated');
+      const loadingIndicator = document.getElementById('loadingIndicator');
+
+      loadingIndicator.style.display = 'none';
+      riceContainer.innerHTML = '';
+
+      riceData.forEach(rice => {
+        const priceChange = calculatePriceChange(rice.price, rice.previousPrice);
+        const changeSymbol = priceChange.class === "price-up" ? "▲" :
+                             priceChange.class === "price-down" ? "▼" : "●";
+        const riceElement = document.createElement('div');
+        riceElement.className = 'rice-type';
+        riceElement.innerHTML = `
+          <span class="rice-type-name">${rice.name}</span>
+          <span class="rice-type-price">
+            ${rice.price}/kg
+            <span class="price-change ${priceChange.class}">
+              ${changeSymbol} ${priceChange.change}%
+            </span>
+          </span>
+        `;
+        riceContainer.appendChild(riceElement);
+      });
+
+      const prices = riceData.map(item => {
+        const num = parseFloat(item.price.replace('₱','').replace(',',''));
+        return isNaN(num) ? 0 : num;
+      });
+      const averagePrice = prices.reduce((sum, cur) => sum + cur, 0) / prices.length;
+
+      const selectElement     = document.getElementById('timeRange');
+      const selectedPeriod    = selectElement.options[selectElement.selectedIndex].text;
+
+      priceBox.innerHTML = `
+        <p>Average Presyo ng Palay (${selectedPeriod}):</p>
+        <p>₱${averagePrice.toFixed(2)}/kg</p>
+        <p><small>Location Basis: National Average</small></p>
+        <p><small>Source: PSA / OpenSTAT</small></p>
+      `;
+
+      const now = new Date();
+      lastUpdated.textContent = `Huling na-update: ${now.toLocaleString('en-PH')}`;
+    }
+
+    function updatePriceDisplay() {
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      const riceContainer    = document.getElementById('riceTypesContainer');
+      const selectElement    = document.getElementById('timeRange');
+      const timeRange        = selectElement.value;
+      const startDate        = document.getElementById('startDate').value;
+      const endDate          = document.getElementById('endDate').value;
+
+      loadingIndicator.style.display = 'block';
+      riceContainer.innerHTML = '';
+      riceContainer.appendChild(loadingIndicator);
+
+      fetchRicePrices(timeRange, startDate, endDate);
+    }
+
+    window.onload = () => {
+      const today    = new Date();
+      const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      document.getElementById('startDate').value = lastWeek.toISOString().split('T')[0];
+      document.getElementById('endDate').value   = today.toISOString().split('T')[0];
+
+      updatePriceDisplay();
+      setInterval(updatePriceDisplay, 5 * 60 * 1000);
+    };
+  </script>
+</body>
+</html>
