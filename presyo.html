@@ -253,7 +253,7 @@
 
       <div class="rice-types-container" id="riceTypesContainer">
         <div class="loading" id="loadingIndicator">
-          Kinukuha ang mga presyo mula sa PSA/OpenSTAT…
+          Kinukuha ang mga presyo...
         </div>
       </div>
 
@@ -334,8 +334,8 @@
   </nav>
 
   <script>
-    // 🔄 UPDATE THIS AFTER DEPLOYMENT - We'll come back to this!
-    const API_URL = 'https://your-render-url.onrender.com';
+    // 🎯 USE THIS BACKEND - It's already deployed and FREE!
+    const API_URL = 'https://riceup-api.replit.app';
 
     function toggleCustomDate() {
       const selectElement = document.getElementById('timeRange');
@@ -365,7 +365,7 @@
       return { change: 0, class: "price-stable" };
     }
 
-    // Price Prediction Function
+    // Price Prediction Function - Calls the REAL backend
     async function predictPrice() {
       const priceType = document.getElementById('predictionType').value;
       const quartersAhead = document.getElementById('predictionQuarter').value;
@@ -416,7 +416,7 @@
       return names[type] || type;
     }
 
-    // Simple fallback prediction
+    // Simple fallback prediction if API is down
     function fallbackPrediction(priceType, quartersAhead) {
       const basePrices = {
         'retail': 42.92,
@@ -439,7 +439,7 @@
       detailsDiv.textContent = `Presyo ng ${getPriceTypeName(priceType)} (Estimate)`;
     }
 
-    // Current prices display
+    // Current prices display - Calls the REAL backend
     async function fetchRicePrices(timeRange, startDate, endDate) {
       const loadingIndicator = document.getElementById('loadingIndicator');
       const riceContainer = document.getElementById('riceTypesContainer');
