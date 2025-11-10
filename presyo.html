@@ -136,6 +136,53 @@
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
     
+    .history-section {
+      background-color: white;
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .history-controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    
+    .history-table th,
+    .history-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #F8F0E4;
+    }
+    
+    .history-table th {
+      background-color: #6B8E23;
+      color: white;
+      font-weight: bold;
+    }
+    
+    .history-table tr:hover {
+      background-color: #F8F0E4;
+    }
+    
+    .price-positive {
+      color: #2e7d32;
+      font-weight: bold;
+    }
+    
+    .price-negative {
+      color: #c62828;
+      font-weight: bold;
+    }
+    
     .prediction-controls {
       display: flex;
       gap: 10px;
@@ -219,8 +266,16 @@
         padding: 6px 8px;
         margin: 0 3px;
       }
-      .prediction-controls {
+      .prediction-controls,
+      .history-controls {
         flex-direction: column;
+      }
+      .history-table {
+        font-size: 14px;
+      }
+      .history-table th,
+      .history-table td {
+        padding: 8px 6px;
       }
     }
   </style>
@@ -263,6 +318,38 @@
 
       <div class="last-updated" id="lastUpdated">
         Huling na-update: -
+      </div>
+    </div>
+
+    <!-- Price History Section -->
+    <div class="history-section">
+      <h3 style="text-align: center; margin-bottom: 15px; color: #5B3A29;">
+        <i class="fas fa-history"></i> Kasaysayan ng Presyo (2014-2021)
+      </h3>
+      
+      <div class="history-controls">
+        <select id="historyType" onchange="showPriceHistory()">
+          <option value="farmgate">Presyo ng Palay (Farmgate)</option>
+          <option value="retail">Presyo ng Bigas (Retail)</option>
+        </select>
+        
+        <select id="historyYear" onchange="showPriceHistory()">
+          <option value="all">Lahat ng Taon</option>
+          <option value="2021">2021</option>
+          <option value="2020">2020</option>
+          <option value="2019">2019</option>
+          <option value="2018">2018</option>
+          <option value="2017">2017</option>
+          <option value="2016">2016</option>
+          <option value="2015">2015</option>
+          <option value="2014">2014</option>
+        </select>
+      </div>
+      
+      <div class="history-content" id="historyContent">
+        <div class="loading" id="historyLoading">
+          Kinukuha ang kasaysayan ng presyo...
+        </div>
       </div>
     </div>
 
@@ -337,6 +424,173 @@
     // 🎯 USE THIS BACKEND - It's already deployed and FREE!
     const API_URL = 'https://riceup-api.replit.app';
 
+    // PSA Historical Data (built into the page)
+    const historicalData = {
+      farmgate: [
+        { year: 2014, quarter: 1, price: 19.52 },
+        { year: 2014, quarter: 2, price: 20.69 },
+        { year: 2014, quarter: 3, price: 20.42 },
+        { year: 2014, quarter: 4, price: 19.77 },
+        { year: 2015, quarter: 1, price: 18.58 },
+        { year: 2015, quarter: 2, price: 17.93 },
+        { year: 2015, quarter: 3, price: 17.58 },
+        { year: 2015, quarter: 4, price: 17.86 },
+        { year: 2016, quarter: 1, price: 18.28 },
+        { year: 2016, quarter: 2, price: 18.19 },
+        { year: 2016, quarter: 3, price: 20.33 },
+        { year: 2016, quarter: 4, price: 17.89 },
+        { year: 2017, quarter: 1, price: 18.73 },
+        { year: 2017, quarter: 2, price: 19.07 },
+        { year: 2017, quarter: 3, price: 18.71 },
+        { year: 2017, quarter: 4, price: 19.10 },
+        { year: 2018, quarter: 1, price: 20.24 },
+        { year: 2018, quarter: 2, price: 20.86 },
+        { year: 2018, quarter: 3, price: 21.46 },
+        { year: 2018, quarter: 4, price: 20.94 },
+        { year: 2019, quarter: 1, price: 19.94 },
+        { year: 2019, quarter: 2, price: 18.06 },
+        { year: 2019, quarter: 3, price: 16.49 },
+        { year: 2019, quarter: 4, price: 15.96 },
+        { year: 2020, quarter: 1, price: 16.47 },
+        { year: 2020, quarter: 2, price: 18.47 },
+        { year: 2020, quarter: 3, price: 17.37 },
+        { year: 2020, quarter: 4, price: 18.39 },
+        { year: 2021, quarter: 1, price: 17.13 },
+        { year: 2021, quarter: 2, price: 16.79 },
+        { year: 2021, quarter: 3, price: 16.44 },
+        { year: 2021, quarter: 4, price: 16.65 }
+      ],
+      retail: [
+        { year: 2014, quarter: 1, price: 40.60 },
+        { year: 2014, quarter: 2, price: 42.39 },
+        { year: 2014, quarter: 3, price: 43.29 },
+        { year: 2014, quarter: 4, price: 43.04 },
+        { year: 2015, quarter: 1, price: 42.41 },
+        { year: 2015, quarter: 2, price: 41.74 },
+        { year: 2015, quarter: 3, price: 41.10 },
+        { year: 2015, quarter: 4, price: 41.20 },
+        { year: 2016, quarter: 1, price: 41.39 },
+        { year: 2016, quarter: 2, price: 40.05 },
+        { year: 2016, quarter: 3, price: 41.32 },
+        { year: 2016, quarter: 4, price: 41.50 },
+        { year: 2017, quarter: 1, price: 41.79 },
+        { year: 2017, quarter: 2, price: 41.80 },
+        { year: 2017, quarter: 3, price: 41.66 },
+        { year: 2017, quarter: 4, price: 42.33 },
+        { year: 2018, quarter: 1, price: 43.17 },
+        { year: 2018, quarter: 2, price: 44.06 },
+        { year: 2018, quarter: 3, price: 46.36 },
+        { year: 2018, quarter: 4, price: 47.17 },
+        { year: 2019, quarter: 1, price: 46.88 },
+        { year: 2019, quarter: 2, price: 43.21 },
+        { year: 2019, quarter: 3, price: 42.12 },
+        { year: 2019, quarter: 4, price: 41.90 },
+        { year: 2020, quarter: 1, price: 41.45 },
+        { year: 2020, quarter: 2, price: 42.29 },
+        { year: 2020, quarter: 3, price: 42.04 },
+        { year: 2020, quarter: 4, price: 41.57 },
+        { year: 2021, quarter: 1, price: 42.33 },
+        { year: 2021, quarter: 2, price: 42.17 },
+        { year: 2021, quarter: 3, price: 42.39 },
+        { year: 2021, quarter: 4, price: 42.92 }
+      ]
+    };
+
+    // Show Price History
+    function showPriceHistory() {
+      const priceType = document.getElementById('historyType').value;
+      const selectedYear = document.getElementById('historyYear').value;
+      const historyContent = document.getElementById('historyContent');
+      const historyLoading = document.getElementById('historyLoading');
+
+      historyLoading.style.display = 'block';
+      
+      setTimeout(() => {
+        const data = historicalData[priceType];
+        let filteredData = data;
+        
+        if (selectedYear !== 'all') {
+          filteredData = data.filter(item => item.year === parseInt(selectedYear));
+        }
+        
+        // Sort by year and quarter (newest first)
+        filteredData.sort((a, b) => {
+          if (a.year !== b.year) return b.year - a.year;
+          return b.quarter - a.quarter;
+        });
+        
+        displayPriceHistory(filteredData, priceType);
+        historyLoading.style.display = 'none';
+      }, 500);
+    }
+
+    function displayPriceHistory(data, priceType) {
+      const historyContent = document.getElementById('historyContent');
+      
+      if (data.length === 0) {
+        historyContent.innerHTML = '<div class="error">Walang datos na available para sa napiling taon.</div>';
+        return;
+      }
+      
+      const priceTypeName = priceType === 'retail' ? 'Bigas (Retail)' : 'Palay (Farmgate)';
+      
+      let tableHTML = `
+        <h4 style="text-align: center; margin-bottom: 15px; color: #5B3A29;">
+          ${priceTypeName} - Presyo bawat Quarter
+        </h4>
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Taon</th>
+              <th>Quarter</th>
+              <th>Presyo (₱/kg)</th>
+              <th>Pagbabago</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      data.forEach((item, index) => {
+        let change = '';
+        let changeClass = '';
+        
+        if (index < data.length - 1) {
+          const prevPrice = data[index + 1].price;
+          const changePercent = ((item.price - prevPrice) / prevPrice * 100).toFixed(1);
+          
+          if (changePercent > 0) {
+            change = `+${changePercent}%`;
+            changeClass = 'price-positive';
+          } else if (changePercent < 0) {
+            change = `${changePercent}%`;
+            changeClass = 'price-negative';
+          } else {
+            change = '0%';
+          }
+        }
+        
+        tableHTML += `
+          <tr>
+            <td>${item.year}</td>
+            <td>Q${item.quarter}</td>
+            <td><strong>₱${item.price.toFixed(2)}</strong></td>
+            <td class="${changeClass}">${change}</td>
+          </tr>
+        `;
+      });
+      
+      tableHTML += `
+          </tbody>
+        </table>
+        <div style="text-align: center; margin-top: 15px; font-size: 12px; color: #666;">
+          Pinagmulan: Philippine Statistics Authority (PSA) 2014-2021
+        </div>
+      `;
+      
+      historyContent.innerHTML = tableHTML;
+    }
+
+    // Rest of your existing functions (prediction, current prices, etc.)
     function toggleCustomDate() {
       const selectElement = document.getElementById('timeRange');
       const customContainer = document.getElementById('customDateContainer');
@@ -563,6 +817,7 @@
       document.getElementById('endDate').value = today.toISOString().split('T')[0];
 
       updatePriceDisplay();
+      showPriceHistory(); // Initialize price history
     };
   </script>
 </body>
