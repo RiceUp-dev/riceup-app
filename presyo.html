@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RiceUp - Presyo ng Palay</title>
+  <title>RiceUp - Presyo ng Bigas</title>
   <style>
     * {
       margin: 0; padding: 0; box-sizing: border-box;
@@ -55,20 +55,6 @@
       background-color: #F8F0E4; color: #5C4033;
       font-size: 16px; cursor: pointer;
     }
-    .custom-date-container {
-      display: none;
-      margin-top: 15px;
-      padding: 15px;
-      background-color: #F8F0E4;
-      border-radius: 8px;
-    }
-    .date-inputs {
-      display: flex; gap: 10px; margin-top: 10px;
-    }
-    .date-inputs input {
-      flex: 1; padding: 10px; border-radius: 5px;
-      border: 1px solid #ccc;
-    }
     .rice-types-container {
       margin-top: 20px;
     }
@@ -115,18 +101,6 @@
       font-size: 12px; color: #888;
       text-align: center; margin-top: 10px;
     }
-    .price-change {
-      font-size: 12px; margin-left: 5px;
-    }
-    .price-up {
-      color: #c62828;
-    }
-    .price-down {
-      color: #2e7d32;
-    }
-    .price-stable {
-      color: #5C4033;
-    }
     
     .prediction-section {
       background-color: white;
@@ -154,11 +128,12 @@
       width: 100%;
       border-collapse: collapse;
       margin-top: 15px;
+      font-size: 14px;
     }
     
     .history-table th,
     .history-table td {
-      padding: 12px;
+      padding: 10px;
       text-align: left;
       border-bottom: 1px solid #F8F0E4;
     }
@@ -255,7 +230,6 @@
     
     @media (max-width: 600px) {
       header { height: 90px; }
-      .date-inputs { flex-direction: column; }
       .nav-label {
         font-size: 0.7rem;
       }
@@ -271,11 +245,11 @@
         flex-direction: column;
       }
       .history-table {
-        font-size: 14px;
+        font-size: 12px;
       }
       .history-table th,
       .history-table td {
-        padding: 8px 6px;
+        padding: 6px 4px;
       }
     }
   </style>
@@ -285,25 +259,18 @@
   <div class="container">
     <header>
       <img src="https://uploads.onecompiler.io/4437779jy/4437qj8jp/PresyoTitle.jpg"
-           alt="Presyo ng Palay" class="header-image">
+           alt="Presyo ng Bigas" class="header-image">
     </header>
 
     <!-- Current Prices Section -->
     <div class="price-container">
       <div class="dropdown-container">
-        <select id="timeRange" onchange="toggleCustomDate()">
-          <option value="current">Kasalukuyang Presyo</option>
-          <option value="last_week">Nakaraang Linggo</option>
-          <option value="last_month">Nakaraang Buwan</option>
-          <option value="custom">Custom na Petsa</option>
+        <select id="priceTypeFilter" onchange="loadCurrentPrices()">
+          <option value="all">Lahat ng Uri ng Bigas</option>
+          <option value="KADIWA">Kadiwa</option>
+          <option value="LOCAL">Local</option>
+          <option value="IMPORTED">Imported</option>
         </select>
-
-        <div class="custom-date-container" id="customDateContainer">
-          <div class="date-inputs">
-            <input type="date" id="startDate">
-            <input type="date" id="endDate">
-          </div>
-        </div>
       </div>
 
       <div class="rice-types-container" id="riceTypesContainer">
@@ -324,25 +291,20 @@
     <!-- Price History Section -->
     <div class="history-section">
       <h3 style="text-align: center; margin-bottom: 15px; color: #5B3A29;">
-        <i class="fas fa-history"></i> Kasaysayan ng Presyo (2014-2021)
+        <i class="fas fa-history"></i> Kasaysayan ng Presyo
       </h3>
       
       <div class="history-controls">
         <select id="historyType" onchange="showPriceHistory()">
-          <option value="farmgate">Presyo ng Palay (Farmgate)</option>
-          <option value="retail">Presyo ng Bigas (Retail)</option>
+          <option value="all">Lahat ng Uri</option>
+          <option value="KADIWA">Kadiwa</option>
+          <option value="LOCAL">Local</option>
+          <option value="IMPORTED">Imported</option>
         </select>
         
-        <select id="historyYear" onchange="showPriceHistory()">
-          <option value="all">Lahat ng Taon</option>
-          <option value="2021">2021</option>
-          <option value="2020">2020</option>
-          <option value="2019">2019</option>
-          <option value="2018">2018</option>
-          <option value="2017">2017</option>
-          <option value="2016">2016</option>
-          <option value="2015">2015</option>
-          <option value="2014">2014</option>
+        <select id="historyCategory" onchange="showPriceHistory()">
+          <option value="all">Lahat ng Kategorya</option>
+          <!-- Options will be loaded dynamically -->
         </select>
       </div>
       
@@ -361,15 +323,14 @@
       
       <div class="prediction-controls">
         <select id="predictionType">
-          <option value="retail">Presyo ng Bigas (Retail)</option>
-          <option value="farmgate">Presyo ng Palay (Farmgate)</option>
+          <!-- Options will be loaded dynamically -->
         </select>
         
-        <select id="predictionQuarter">
-          <option value="1">1 Quarter Mula Ngayon</option>
-          <option value="2">2 Quarters Mula Ngayon</option>
-          <option value="3">3 Quarters Mula Ngayon</option>
-          <option value="4">4 Quarters Mula Ngayon</option>
+        <select id="predictionWeeks">
+          <option value="1">1 Linggo Mula Ngayon</option>
+          <option value="2">2 Linggo Mula Ngayon</option>
+          <option value="4">1 Buwan Mula Ngayon</option>
+          <option value="8">2 Buwan Mula Ngayon</option>
         </select>
       </div>
       
@@ -391,7 +352,7 @@
         <p>Tinatayang Presyo:</p>
         <div class="predicted-price" id="predictedPrice">-</div>
         <p id="predictionDetails">-</p>
-        <small>Batay sa datos ng PSA (2014-2021) gamit ang Linear Regression</small>
+        <small>Batay sa iyong CSV data gamit ang Linear Regression</small>
       </div>
 
       <div class="loading" id="predictionLoading" style="display: none;">
@@ -406,7 +367,7 @@
       <i class="fas fa-calendar-alt nav-icon"></i>
       <span class="nav-label">Kalendaryo ng Pagsasaka</span>
     </a>
-    <a href="surin.html" class="nav-item">
+    <a href="suriin.html" class="nav-item">
       <i class="fas fa-search nav-icon"></i>
       <span class="nav-label">Suriin ang Palay</span>
     </a>
@@ -421,128 +382,264 @@
   </nav>
 
   <script>
-    // 🎯 USE THIS BACKEND - It's already deployed and FREE!
-    const API_URL = 'https://riceup-api.replit.app';
+    // 🔄 UPDATE THIS WITH YOUR BACKEND URL
+    const API_URL = 'https://your-backend-url.vercel.app'; // Change this after deployment
 
-    // PSA Historical Data (built into the page)
-    const historicalData = {
-      farmgate: [
-        { year: 2014, quarter: 1, price: 19.52 },
-        { year: 2014, quarter: 2, price: 20.69 },
-        { year: 2014, quarter: 3, price: 20.42 },
-        { year: 2014, quarter: 4, price: 19.77 },
-        { year: 2015, quarter: 1, price: 18.58 },
-        { year: 2015, quarter: 2, price: 17.93 },
-        { year: 2015, quarter: 3, price: 17.58 },
-        { year: 2015, quarter: 4, price: 17.86 },
-        { year: 2016, quarter: 1, price: 18.28 },
-        { year: 2016, quarter: 2, price: 18.19 },
-        { year: 2016, quarter: 3, price: 20.33 },
-        { year: 2016, quarter: 4, price: 17.89 },
-        { year: 2017, quarter: 1, price: 18.73 },
-        { year: 2017, quarter: 2, price: 19.07 },
-        { year: 2017, quarter: 3, price: 18.71 },
-        { year: 2017, quarter: 4, price: 19.10 },
-        { year: 2018, quarter: 1, price: 20.24 },
-        { year: 2018, quarter: 2, price: 20.86 },
-        { year: 2018, quarter: 3, price: 21.46 },
-        { year: 2018, quarter: 4, price: 20.94 },
-        { year: 2019, quarter: 1, price: 19.94 },
-        { year: 2019, quarter: 2, price: 18.06 },
-        { year: 2019, quarter: 3, price: 16.49 },
-        { year: 2019, quarter: 4, price: 15.96 },
-        { year: 2020, quarter: 1, price: 16.47 },
-        { year: 2020, quarter: 2, price: 18.47 },
-        { year: 2020, quarter: 3, price: 17.37 },
-        { year: 2020, quarter: 4, price: 18.39 },
-        { year: 2021, quarter: 1, price: 17.13 },
-        { year: 2021, quarter: 2, price: 16.79 },
-        { year: 2021, quarter: 3, price: 16.44 },
-        { year: 2021, quarter: 4, price: 16.65 }
-      ],
-      retail: [
-        { year: 2014, quarter: 1, price: 40.60 },
-        { year: 2014, quarter: 2, price: 42.39 },
-        { year: 2014, quarter: 3, price: 43.29 },
-        { year: 2014, quarter: 4, price: 43.04 },
-        { year: 2015, quarter: 1, price: 42.41 },
-        { year: 2015, quarter: 2, price: 41.74 },
-        { year: 2015, quarter: 3, price: 41.10 },
-        { year: 2015, quarter: 4, price: 41.20 },
-        { year: 2016, quarter: 1, price: 41.39 },
-        { year: 2016, quarter: 2, price: 40.05 },
-        { year: 2016, quarter: 3, price: 41.32 },
-        { year: 2016, quarter: 4, price: 41.50 },
-        { year: 2017, quarter: 1, price: 41.79 },
-        { year: 2017, quarter: 2, price: 41.80 },
-        { year: 2017, quarter: 3, price: 41.66 },
-        { year: 2017, quarter: 4, price: 42.33 },
-        { year: 2018, quarter: 1, price: 43.17 },
-        { year: 2018, quarter: 2, price: 44.06 },
-        { year: 2018, quarter: 3, price: 46.36 },
-        { year: 2018, quarter: 4, price: 47.17 },
-        { year: 2019, quarter: 1, price: 46.88 },
-        { year: 2019, quarter: 2, price: 43.21 },
-        { year: 2019, quarter: 3, price: 42.12 },
-        { year: 2019, quarter: 4, price: 41.90 },
-        { year: 2020, quarter: 1, price: 41.45 },
-        { year: 2020, quarter: 2, price: 42.29 },
-        { year: 2020, quarter: 3, price: 42.04 },
-        { year: 2020, quarter: 4, price: 41.57 },
-        { year: 2021, quarter: 1, price: 42.33 },
-        { year: 2021, quarter: 2, price: 42.17 },
-        { year: 2021, quarter: 3, price: 42.39 },
-        { year: 2021, quarter: 4, price: 42.92 }
-      ]
-    };
+    // Load available rice types from backend
+    async function loadRiceTypes() {
+      try {
+        const response = await fetch(`${API_URL}/prices/types`);
+        if (response.ok) {
+          const data = await response.json();
+          populateDropdowns(data);
+        }
+      } catch (error) {
+        console.error('Error loading rice types:', error);
+        populateFallbackTypes();
+      }
+    }
 
-    // Show Price History
-    function showPriceHistory() {
-      const priceType = document.getElementById('historyType').value;
-      const selectedYear = document.getElementById('historyYear').value;
+    function populateDropdowns(typesData) {
+      const predictionTypeSelect = document.getElementById('predictionType');
+      const historyCategorySelect = document.getElementById('historyCategory');
+      
+      predictionTypeSelect.innerHTML = '';
+      historyCategorySelect.innerHTML = '<option value="all">Lahat ng Kategorya</option>';
+      
+      for (const [riceType, categories] of Object.entries(typesData)) {
+        categories.forEach(category => {
+          const displayName = getDisplayName(riceType, category);
+          const value = `${riceType}|${category}`;
+          
+          // Add to prediction dropdown
+          const predictionOption = new Option(displayName, value);
+          predictionTypeSelect.add(predictionOption);
+          
+          // Add to history category dropdown
+          const historyOption = new Option(displayName, value);
+          historyCategorySelect.add(historyOption);
+        });
+      }
+    }
+
+    function populateFallbackTypes() {
+      const predictionTypeSelect = document.getElementById('predictionType');
+      const historyCategorySelect = document.getElementById('historyCategory');
+      
+      const fallbackOptions = [
+        {value: "KADIWA|Well_Milled", display: "Kadiwa - Well Milled"},
+        {value: "LOCAL|Special", display: "Local - Special"},
+        {value: "LOCAL|Premium", display: "Local - Premium"},
+        {value: "LOCAL|Well_Milled", display: "Local - Well Milled"},
+        {value: "LOCAL|Regular_Milled", display: "Local - Regular Milled"},
+        {value: "IMPORTED|Special", display: "Imported - Special"},
+        {value: "IMPORTED|Premium", display: "Imported - Premium"},
+        {value: "IMPORTED|Well_Milled", display: "Imported - Well Milled"},
+        {value: "IMPORTED|Regular_Milled", display: "Imported - Regular Milled"}
+      ];
+      
+      fallbackOptions.forEach(option => {
+        const predictionOption = new Option(option.display, option.value);
+        const historyOption = new Option(option.display, option.value);
+        
+        predictionTypeSelect.add(predictionOption);
+        historyCategorySelect.add(historyOption);
+      });
+    }
+
+    function getDisplayName(type, category) {
+      const typeNames = {
+        'KADIWA': 'Kadiwa',
+        'LOCAL': 'Local',
+        'IMPORTED': 'Imported'
+      };
+      
+      const categoryNames = {
+        'Well_Milled': 'Well Milled',
+        'Special': 'Special',
+        'Premium': 'Premium', 
+        'Regular_Milled': 'Regular Milled'
+      };
+      
+      return `${typeNames[type]} - ${categoryNames[category]}`;
+    }
+
+    // Load current prices
+    async function loadCurrentPrices() {
+      const filterType = document.getElementById('priceTypeFilter').value;
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      const riceContainer = document.getElementById('riceTypesContainer');
+      
+      loadingIndicator.style.display = 'block';
+      riceContainer.innerHTML = '';
+      riceContainer.appendChild(loadingIndicator);
+
+      try {
+        const response = await fetch(`${API_URL}/prices/current`);
+        if (response.ok) {
+          const data = await response.json();
+          displayCurrentPrices(data.current_prices, filterType, data.as_of_date);
+        } else {
+          throw new Error('API response not OK');
+        }
+      } catch (error) {
+        console.error('Error loading prices:', error);
+        displayFallbackPrices(filterType);
+      }
+    }
+
+    function displayCurrentPrices(prices, filterType, asOfDate) {
+      const riceContainer = document.getElementById('riceTypesContainer');
+      const priceBox = document.getElementById('pricePrintBox');
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      const lastUpdated = document.getElementById('lastUpdated');
+
+      loadingIndicator.style.display = 'none';
+      riceContainer.innerHTML = '';
+
+      // Filter prices if needed
+      let filteredPrices = prices;
+      if (filterType !== 'all') {
+        filteredPrices = prices.filter(price => price.type === filterType);
+      }
+
+      if (filteredPrices.length === 0) {
+        riceContainer.innerHTML = '<div class="error">Walang presyo na available para sa napiling uri.</div>';
+        return;
+      }
+
+      // Display each price
+      filteredPrices.forEach(price => {
+        const displayName = getDisplayName(price.type, price.category);
+        const riceElement = document.createElement('div');
+        riceElement.className = 'rice-type';
+        riceElement.innerHTML = `
+          <span class="rice-type-name">${displayName}</span>
+          <span class="rice-type-price">₱${price.price}/kg</span>
+        `;
+        riceContainer.appendChild(riceElement);
+      });
+
+      // Calculate average price
+      const averagePrice = filteredPrices.reduce((sum, price) => sum + price.price, 0) / filteredPrices.length;
+      
+      priceBox.innerHTML = `
+        <p>Average Presyo:</p>
+        <p>₱${averagePrice.toFixed(2)}/kg</p>
+        <p><small>Batay sa ${filteredPrices.length} uri ng bigas</small></p>
+      `;
+
+      lastUpdated.textContent = `Huling na-update: ${new Date(asOfDate).toLocaleDateString('en-PH')}`;
+    }
+
+    function displayFallbackPrices(filterType) {
+      const riceContainer = document.getElementById('riceTypesContainer');
+      const priceBox = document.getElementById('pricePrintBox');
+      const loadingIndicator = document.getElementById('loadingIndicator');
+
+      loadingIndicator.style.display = 'none';
+      
+      const fallbackPrices = [
+        { type: "KADIWA", category: "Well_Milled", name: "Kadiwa - Well Milled", price: "₱25.50" },
+        { type: "LOCAL", category: "Special", name: "Local - Special", price: "₱48.75" },
+        { type: "LOCAL", category: "Premium", name: "Local - Premium", price: "₱45.25" },
+        { type: "LOCAL", category: "Well_Milled", name: "Local - Well Milled", price: "₱42.50" },
+        { type: "LOCAL", category: "Regular_Milled", name: "Local - Regular Milled", price: "₱39.75" },
+        { type: "IMPORTED", category: "Special", name: "Imported - Special", price: "₱52.25" },
+        { type: "IMPORTED", category: "Premium", name: "Imported - Premium", price: "₱48.75" },
+        { type: "IMPORTED", category: "Well_Milled", name: "Imported - Well Milled", price: "₱45.80" },
+        { type: "IMPORTED", category: "Regular_Milled", name: "Imported - Regular Milled", price: "₱43.00" }
+      ];
+
+      let filteredPrices = fallbackPrices;
+      if (filterType !== 'all') {
+        filteredPrices = fallbackPrices.filter(price => price.type === filterType);
+      }
+
+      filteredPrices.forEach(rice => {
+        const riceElement = document.createElement('div');
+        riceElement.className = 'rice-type';
+        riceElement.innerHTML = `
+          <span class="rice-type-name">${rice.name}</span>
+          <span class="rice-type-price">${rice.price}/kg</span>
+        `;
+        riceContainer.appendChild(riceElement);
+      });
+
+      const averagePrice = filteredPrices.reduce((sum, rice) => {
+        const price = parseFloat(rice.price.replace('₱', ''));
+        return sum + price;
+      }, 0) / filteredPrices.length;
+
+      priceBox.innerHTML = `
+        <p>Average Presyo ng Bigas:</p>
+        <p>₱${averagePrice.toFixed(2)}/kg</p>
+        <p><small>Sample data lamang</small></p>
+      `;
+    }
+
+    // Price History
+    async function showPriceHistory() {
+      const historyType = document.getElementById('historyType').value;
+      const historyCategory = document.getElementById('historyCategory').value;
       const historyContent = document.getElementById('historyContent');
       const historyLoading = document.getElementById('historyLoading');
 
       historyLoading.style.display = 'block';
-      
-      setTimeout(() => {
-        const data = historicalData[priceType];
-        let filteredData = data;
+
+      try {
+        let url = `${API_URL}/prices/historical`;
+        const params = new URLSearchParams();
         
-        if (selectedYear !== 'all') {
-          filteredData = data.filter(item => item.year === parseInt(selectedYear));
+        if (historyType !== 'all') {
+          params.append('type', historyType);
+        }
+        if (historyCategory !== 'all') {
+          const [type, category] = historyCategory.split('|');
+          params.append('type', type);
+          params.append('category', category);
         }
         
-        // Sort by year and quarter (newest first)
-        filteredData.sort((a, b) => {
-          if (a.year !== b.year) return b.year - a.year;
-          return b.quarter - a.quarter;
-        });
-        
-        displayPriceHistory(filteredData, priceType);
+        if (params.toString()) {
+          url += '?' + params.toString();
+        }
+
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          displayPriceHistory(data.historical_data, historyType, historyCategory);
+        } else {
+          throw new Error('API response not OK');
+        }
+      } catch (error) {
+        console.error('Error loading history:', error);
+        displayFallbackHistory();
+      } finally {
         historyLoading.style.display = 'none';
-      }, 500);
+      }
     }
 
-    function displayPriceHistory(data, priceType) {
+    function displayPriceHistory(data, historyType, historyCategory) {
       const historyContent = document.getElementById('historyContent');
       
-      if (data.length === 0) {
-        historyContent.innerHTML = '<div class="error">Walang datos na available para sa napiling taon.</div>';
+      if (!data || data.length === 0) {
+        historyContent.innerHTML = '<div class="error">Walang datos na available para sa napiling uri at kategorya.</div>';
         return;
       }
-      
-      const priceTypeName = priceType === 'retail' ? 'Bigas (Retail)' : 'Palay (Farmgate)';
-      
+
+      // Sort by date (newest first)
+      data.sort((a, b) => new Date(b.date) - new Date(a.date));
+
       let tableHTML = `
         <h4 style="text-align: center; margin-bottom: 15px; color: #5B3A29;">
-          ${priceTypeName} - Presyo bawat Quarter
+          Kasaysayan ng Presyo - ${getHistoryTitle(historyType, historyCategory)}
         </h4>
         <table class="history-table">
           <thead>
             <tr>
-              <th>Taon</th>
-              <th>Quarter</th>
+              <th>Petsa</th>
+              <th>Uri</th>
+              <th>Kategorya</th>
               <th>Presyo (₱/kg)</th>
               <th>Pagbabago</th>
             </tr>
@@ -571,8 +668,9 @@
         
         tableHTML += `
           <tr>
-            <td>${item.year}</td>
-            <td>Q${item.quarter}</td>
+            <td>${new Date(item.date).toLocaleDateString('en-PH')}</td>
+            <td>${getDisplayName(item.type, '').split(' - ')[0]}</td>
+            <td>${getDisplayName('', item.category).split(' - ')[1] || item.category}</td>
             <td><strong>₱${item.price.toFixed(2)}</strong></td>
             <td class="${changeClass}">${change}</td>
           </tr>
@@ -583,52 +681,38 @@
           </tbody>
         </table>
         <div style="text-align: center; margin-top: 15px; font-size: 12px; color: #666;">
-          Pinagmulan: Philippine Statistics Authority (PSA) 2014-2021
+          Ipinapakita ang ${data.length} na rekord
         </div>
       `;
       
       historyContent.innerHTML = tableHTML;
     }
 
-    // Rest of your existing functions (prediction, current prices, etc.)
-    function toggleCustomDate() {
-      const selectElement = document.getElementById('timeRange');
-      const customContainer = document.getElementById('customDateContainer');
-      if (selectElement.value === 'custom') {
-        customContainer.style.display = 'block';
+    function getHistoryTitle(historyType, historyCategory) {
+      if (historyCategory !== 'all') {
+        const [type, category] = historyCategory.split('|');
+        return getDisplayName(type, category);
+      } else if (historyType !== 'all') {
+        return getDisplayName(historyType, '');
       } else {
-        customContainer.style.display = 'none';
+        return 'Lahat ng Uri ng Bigas';
       }
-      updatePriceDisplay();
     }
 
-    function getPreviousDate(daysAgo) {
-      const date = new Date();
-      date.setDate(date.getDate() - daysAgo);
-      return date.toISOString().split('T')[0];
+    function displayFallbackHistory() {
+      const historyContent = document.getElementById('historyContent');
+      historyContent.innerHTML = '<div class="error">Hindi makukuha ang kasaysayan ng presyo sa ngayon. Pakisubukan muli mamaya.</div>';
     }
 
-    function calculatePriceChange(currentPrice, previousPrice) {
-      if (!previousPrice) return { change: 0, class: "price-stable" };
-      const current = parseFloat(currentPrice.replace('₱','').replace(',',''));
-      const previous = parseFloat(previousPrice.replace('₱','').replace(',',''));
-      if (isNaN(current) || isNaN(previous)) return { change: 0, class: "price-stable" };
-      const change = ((current - previous) / previous) * 100;
-      if (change > 0) return { change: change.toFixed(2), class: "price-up" };
-      if (change < 0) return { change: Math.abs(change).toFixed(2), class: "price-down" };
-      return { change: 0, class: "price-stable" };
-    }
-
-    // Price Prediction Function - Calls the REAL backend
+    // Price Prediction
     async function predictPrice() {
-      const priceType = document.getElementById('predictionType').value;
-      const quartersAhead = document.getElementById('predictionQuarter').value;
+      const [riceType, category] = document.getElementById('predictionType').value.split('|');
+      const weeksAhead = parseInt(document.getElementById('predictionWeeks').value);
       const resultDiv = document.getElementById('predictionResult');
       const loadingDiv = document.getElementById('predictionLoading');
       const priceDiv = document.getElementById('predictedPrice');
       const detailsDiv = document.getElementById('predictionDetails');
 
-      // Show loading, hide previous result
       loadingDiv.style.display = 'block';
       resultDiv.style.display = 'none';
 
@@ -639,185 +723,35 @@
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            type: priceType,
-            quarters_ahead: parseInt(quartersAhead)
+            type: riceType,
+            category: category,
+            weeks_ahead: weeksAhead
           })
         });
 
         if (response.ok) {
           const data = await response.json();
           priceDiv.textContent = `₱${data.predicted_price}/kg`;
-          detailsDiv.textContent = `Presyo ng ${getPriceTypeName(priceType)} para sa ${data.prediction_period}`;
+          detailsDiv.textContent = `Presyo ng ${getDisplayName(riceType, category)} para sa ${data.prediction_date}`;
           resultDiv.style.display = 'block';
         } else {
           throw new Error('API response not OK');
         }
       } catch (error) {
         console.error('Prediction error:', error);
-        // Fallback prediction
-        fallbackPrediction(priceType, quartersAhead);
+        priceDiv.textContent = '₱--.--/kg';
+        detailsDiv.textContent = 'Serbisyo pansamantalang hindi available';
         resultDiv.style.display = 'block';
       } finally {
         loadingDiv.style.display = 'none';
       }
     }
 
-    function getPriceTypeName(type) {
-      const names = {
-        'retail': 'Bigas (Retail)',
-        'farmgate': 'Palay (Farmgate)'
-      };
-      return names[type] || type;
-    }
-
-    // Simple fallback prediction if API is down
-    function fallbackPrediction(priceType, quartersAhead) {
-      const basePrices = {
-        'retail': 42.92,
-        'farmgate': 16.65
-      };
-      
-      const trends = {
-        'retail': 0.15,
-        'farmgate': 0.08
-      };
-      
-      const basePrice = basePrices[priceType];
-      const trend = trends[priceType];
-      const predicted = basePrice + (trend * quartersAhead);
-      
-      const priceDiv = document.getElementById('predictedPrice');
-      const detailsDiv = document.getElementById('predictionDetails');
-      
-      priceDiv.textContent = `₱${predicted.toFixed(2)}/kg`;
-      detailsDiv.textContent = `Presyo ng ${getPriceTypeName(priceType)} (Estimate)`;
-    }
-
-    // Current prices display - Calls the REAL backend
-    async function fetchRicePrices(timeRange, startDate, endDate) {
-      const loadingIndicator = document.getElementById('loadingIndicator');
-      const riceContainer = document.getElementById('riceTypesContainer');
-      const priceBox = document.getElementById('pricePrintBox');
-      const lastUpdated = document.getElementById('lastUpdated');
-
-      try {
-        // Try to get current prices from our API first
-        const response = await fetch(`${API_URL}/prices/current`);
-        if (response.ok) {
-          const data = await response.json();
-          
-          const riceData = [
-            { 
-              name: "Palay (Farmgate)", 
-              price: `₱${data.farmgate.price}`, 
-              date: data.farmgate.period,
-              previousPrice: `₱${(data.farmgate.price - 0.5).toFixed(2)}`
-            },
-            { 
-              name: "Bigas (Retail)", 
-              price: `₱${data.retail.price}`, 
-              date: data.retail.period,
-              previousPrice: `₱${(data.retail.price - 0.3).toFixed(2)}`
-            }
-          ];
-          
-          displayRicePrices(riceData, timeRange);
-          return;
-        }
-      } catch (err) {
-        console.warn("API fetch failed, using fallback data");
-      }
-
-      // Fallback data
-      const fallbackData = {
-        current: [
-          { name: "Palay (Farmgate)", price: "₱16.65", date: "2021-Q4", previousPrice: "₱16.44" },
-          { name: "Bigas (Retail)", price: "₱42.92", date: "2021-Q4", previousPrice: "₱42.39" }
-        ],
-        last_week: [
-          { name: "Palay (Farmgate)", price: "₱16.44", date: "2021-Q3", previousPrice: "₱16.79" },
-          { name: "Bigas (Retail)", price: "₱42.39", date: "2021-Q3", previousPrice: "₱42.17" }
-        ],
-        last_month: [
-          { name: "Palay (Farmgate)", price: "₱16.79", date: "2021-Q2", previousPrice: "₱17.13" },
-          { name: "Bigas (Retail)", price: "₱42.17", date: "2021-Q2", previousPrice: "₱42.33" }
-        ]
-      }[timeRange] || fallbackData.current;
-
-      displayRicePrices(fallbackData, timeRange);
-    }
-
-    function displayRicePrices(riceData, timeRange) {
-      const riceContainer = document.getElementById('riceTypesContainer');
-      const priceBox = document.getElementById('pricePrintBox');
-      const lastUpdated = document.getElementById('lastUpdated');
-      const loadingIndicator = document.getElementById('loadingIndicator');
-
-      loadingIndicator.style.display = 'none';
-      riceContainer.innerHTML = '';
-
-      riceData.forEach(rice => {
-        const priceChange = calculatePriceChange(rice.price, rice.previousPrice);
-        const changeSymbol = priceChange.class === "price-up" ? "▲" :
-                             priceChange.class === "price-down" ? "▼" : "●";
-        const riceElement = document.createElement('div');
-        riceElement.className = 'rice-type';
-        riceElement.innerHTML = `
-          <span class="rice-type-name">${rice.name}</span>
-          <span class="rice-type-price">
-            ${rice.price}/kg
-            <span class="price-change ${priceChange.class}">
-              ${changeSymbol} ${priceChange.change}%
-            </span>
-          </span>
-        `;
-        riceContainer.appendChild(riceElement);
-      });
-
-      const prices = riceData.map(item => {
-        const num = parseFloat(item.price.replace('₱','').replace(',',''));
-        return isNaN(num) ? 0 : num;
-      });
-      const averagePrice = prices.reduce((sum, cur) => sum + cur, 0) / prices.length;
-
-      const selectElement = document.getElementById('timeRange');
-      const selectedPeriod = selectElement.options[selectElement.selectedIndex].text;
-
-      priceBox.innerHTML = `
-        <p>Average Presyo (${selectedPeriod}):</p>
-        <p>₱${averagePrice.toFixed(2)}/kg</p>
-        <p><small>Batay sa National Average</small></p>
-        <p><small>Pinagmulan: PSA Data</small></p>
-      `;
-
-      const now = new Date();
-      lastUpdated.textContent = `Huling na-update: ${now.toLocaleString('en-PH')}`;
-    }
-
-    function updatePriceDisplay() {
-      const loadingIndicator = document.getElementById('loadingIndicator');
-      const riceContainer = document.getElementById('riceTypesContainer');
-      const selectElement = document.getElementById('timeRange');
-      const timeRange = selectElement.value;
-      const startDate = document.getElementById('startDate').value;
-      const endDate = document.getElementById('endDate').value;
-
-      loadingIndicator.style.display = 'block';
-      riceContainer.innerHTML = '';
-      riceContainer.appendChild(loadingIndicator);
-
-      fetchRicePrices(timeRange, startDate, endDate);
-    }
-
     // Initialize the application
     window.onload = () => {
-      const today = new Date();
-      const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      document.getElementById('startDate').value = lastWeek.toISOString().split('T')[0];
-      document.getElementById('endDate').value = today.toISOString().split('T')[0];
-
-      updatePriceDisplay();
-      showPriceHistory(); // Initialize price history
+      loadRiceTypes();
+      loadCurrentPrices();
+      showPriceHistory();
     };
   </script>
 </body>
