@@ -267,7 +267,7 @@
       <div class="dropdown-container">
         <select id="priceTypeFilter" onchange="loadCurrentPrices()">
           <option value="all">Lahat ng Uri ng Bigas</option>
-          <option value="KADIWA_RICE_FOR_ALL">Kadiwa</option>
+          <option value="KADIWA">Kadiwa</option>
           <option value="LOCAL">Local</option>
           <option value="IMPORTED">Imported</option>
         </select>
@@ -297,7 +297,7 @@
       <div class="history-controls">
         <select id="historyType" onchange="showPriceHistory()">
           <option value="all">Lahat ng Uri</option>
-          <option value="KADIWA_RICE_FOR_ALL">Kadiwa</option>
+          <option value="KADIWA">Kadiwa</option>
           <option value="LOCAL">Local</option>
           <option value="IMPORTED">Imported</option>
         </select>
@@ -427,10 +427,10 @@
       const historyCategorySelect = document.getElementById('historyCategory');
       
       const fallbackOptions = [
-        {value: "KADIWA_RICE_FOR_ALL|Premium", display: "Kadiwa - Premium"},
-        {value: "KADIWA_RICE_FOR_ALL|Well_Milled", display: "Kadiwa - Well Milled"},
-        {value: "KADIWA_RICE_FOR_ALL|Regular_Milled", display: "Kadiwa - Regular Milled"},
-        {value: "KADIWA_RICE_FOR_ALL|P20", display: "Kadiwa - P20"},
+        {value: "KADIWA|Premium", display: "Kadiwa - Premium"},
+        {value: "KADIWA|Well_Milled", display: "Kadiwa - Well Milled"},
+        {value: "KADIWA|Regular_Milled", display: "Kadiwa - Regular Milled"},
+        {value: "KADIWA|P20", display: "Kadiwa - P20"},
         {value: "LOCAL|Special", display: "Local - Special"},
         {value: "LOCAL|Premium", display: "Local - Premium"},
         {value: "LOCAL|Well_Milled", display: "Local - Well Milled"},
@@ -452,7 +452,7 @@
 
     function getDisplayName(type, category) {
       const typeNames = {
-        'KADIWA_RICE_FOR_ALL': 'Kadiwa',
+        'KADIWA': 'Kadiwa',
         'LOCAL': 'Local',
         'IMPORTED': 'Imported'
       };
@@ -544,10 +544,10 @@
       loadingIndicator.style.display = 'none';
       
       const fallbackPrices = [
-        { type: "KADIWA_RICE_FOR_ALL", category: "Premium", name: "Kadiwa - Premium", price: "₱43.00" },
-        { type: "KADIWA_RICE_FOR_ALL", category: "Well_Milled", name: "Kadiwa - Well Milled", price: "₱35.00" },
-        { type: "KADIWA_RICE_FOR_ALL", category: "Regular_Milled", name: "Kadiwa - Regular Milled", price: "₱33.00" },
-        { type: "KADIWA_RICE_FOR_ALL", category: "P20", name: "Kadiwa - P20", price: "₱20.00" },
+        { type: "KADIWA", category: "Premium", name: "Kadiwa - Premium", price: "₱43.00" },
+        { type: "KADIWA", category: "Well_Milled", name: "Kadiwa - Well Milled", price: "₱35.00" },
+        { type: "KADIWA", category: "Regular_Milled", name: "Kadiwa - Regular Milled", price: "₱33.00" },
+        { type: "KADIWA", category: "P20", name: "Kadiwa - P20", price: "₱20.00" },
         { type: "LOCAL", category: "Special", name: "Local - Special", price: "₱48.75" },
         { type: "LOCAL", category: "Premium", name: "Local - Premium", price: "₱45.25" },
         { type: "LOCAL", category: "Well_Milled", name: "Local - Well Milled", price: "₱42.50" },
