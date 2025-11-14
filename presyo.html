@@ -182,6 +182,22 @@
       font-weight: bold;
       margin: 10px 0;
     }
+    
+    .pagination-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding: 10px;
+      background-color: #F8F0E4;
+      border-radius: 8px;
+    }
+    
+    .pagination-info {
+      font-size: 14px;
+      color: #666;
+      font-weight: bold;
+    }
 
     .bottom-nav {
       position: fixed;
@@ -390,6 +406,11 @@
     let availableRiceTypes = {};
     let currentPricesData = [];
     let currentFilter = 'all';
+
+    // Price History with Pagination
+    let historyData = [];
+    let currentHistoryPage = 1;
+    const HISTORY_PAGE_SIZE = 10;
 
     // Load available rice types from backend
     async function loadRiceTypes() {
@@ -664,14 +685,13 @@
       document.getElementById('lastUpdated').textContent = 'Huling na-update: Fallback Data';
     }
 
-    // Price History
-    let historyData = [];
-    
+    // Price History Functions
     async function showPriceHistory() {
       const historyContent = document.getElementById('historyContent');
       const historyLoading = document.getElementById('historyLoading');
 
       historyLoading.style.display = 'block';
+      historyContent.innerHTML = '';
 
       try {
         let url = `${API_URL}/prices/historical`;
@@ -682,6 +702,11 @@
           const data = await response.json();
           console.log('Received history data:', data);
           historyData = data.historical_data || [];
+          
+          // Sort by date (newest first)
+          historyData.sort((a, b) => new Date(b.date) - new Date(a.date));
+          
+          currentHistoryPage = 1;
           filterHistory();
         } else {
           console.error('API response not OK for history:', response.status);
@@ -732,13 +757,36 @@
         return;
       }
 
-      // Sort by date (newest first)
-      filteredData.sort((a, b) => new Date(b.date) - new Date(a.date));
+      // Calculate pagination
+      const totalPages = Math.ceil(filteredData.length / HISTORY_PAGE_SIZE);
+      const startIndex = (currentHistoryPage - 1) * HISTORY_PAGE_SIZE;
+      const endIndex = Math.min(startIndex + HISTORY_PAGE_SIZE, filteredData.length);
+      const pageData = filteredData.slice(startIndex, endIndex);
 
       let tableHTML = `
         <h4 style="text-align: center; margin-bottom: 15px; color: #5B3A29;">
           Kasaysayan ng Presyo - ${getHistoryTitle(historyType, historyCategory)}
         </h4>
+        
+        <!-- Pagination Controls -->
+        <div class="pagination-controls">
+          <button onclick="previousHistoryPage()" ${currentHistoryPage === 1 ? 'disabled' : ''} 
+            style="padding: 8px 15px; background-color: ${currentHistoryPage === 1 ? '#ccc' : '#6B8E23'}; 
+                   color: white; border: none; border-radius: 5px; cursor: ${currentHistoryPage === 1 ? 'not-allowed' : 'pointer'};">
+            <i class="fas fa-arrow-left"></i> Mas Luma
+          </button>
+          
+          <span class="pagination-info">
+            Pahina ${currentHistoryPage} ng ${totalPages} (${filteredData.length} total)
+          </span>
+          
+          <button onclick="nextHistoryPage()" ${currentHistoryPage === totalPages ? 'disabled' : ''}
+            style="padding: 8px 15px; background-color: ${currentHistoryPage === totalPages ? '#ccc' : '#6B8E23'}; 
+                   color: white; border: none; border-radius: 5px; cursor: ${currentHistoryPage === totalPages ? 'not-allowed' : 'pointer'};">
+            Mas Bago <i class="fas fa-arrow-right"></i>
+          </button>
+        </div>
+        
         <table class="history-table">
           <thead>
             <tr>
@@ -752,25 +800,34 @@
           <tbody>
       `;
       
-      filteredData.forEach((item, index) => {
+      pageData.forEach((item, index) => {
         let change = '';
         let changeClass = '';
         
-        if (index < filteredData.length - 1) {
-          const prevPrice = filteredData[index + 1].price;
+        // Calculate price change compared to previous record of the same type/category
+        const sameTypeData = filteredData.filter(d => 
+          d.type === item.type && d.category === item.category
+        );
+        const currentIndex = sameTypeData.findIndex(d => 
+          d.date === item.date && d.type === item.type && d.category === item.category
+        );
+        
+        if (currentIndex > 0) {
+          const prevItem = sameTypeData[currentIndex - 1];
           const currentPrice = typeof item.price === 'number' ? item.price : parseFloat(item.price);
-          const prevPriceNum = typeof prevPrice === 'number' ? prevPrice : parseFloat(prevPrice);
+          const prevPrice = typeof prevItem.price === 'number' ? prevItem.price : parseFloat(prevItem.price);
           
-          const changePercent = ((currentPrice - prevPriceNum) / prevPriceNum * 100).toFixed(1);
+          const changeAmount = currentPrice - prevPrice;
+          const changePercent = ((changeAmount) / prevPrice * 100).toFixed(1);
           
-          if (changePercent > 0) {
-            change = `+${changePercent}%`;
-            changeClass = 'price-positive';
-          } else if (changePercent < 0) {
-            change = `${changePercent}%`;
+          if (changeAmount > 0) {
+            change = `+₱${changeAmount.toFixed(2)} (+${changePercent}%)`;
             changeClass = 'price-negative';
+          } else if (changeAmount < 0) {
+            change = `-₱${Math.abs(changeAmount).toFixed(2)} (${changePercent}%)`;
+            changeClass = 'price-positive';
           } else {
-            change = '0%';
+            change = 'Walang Pagbabago';
           }
         }
         
@@ -790,12 +847,41 @@
       tableHTML += `
           </tbody>
         </table>
-        <div style="text-align: center; margin-top: 15px; font-size: 12px; color: #666;">
-          Ipinapakita ang ${filteredData.length} na rekord
-        </div>
       `;
       
       historyContent.innerHTML = tableHTML;
+    }
+
+    // Pagination functions
+    function nextHistoryPage() {
+      const historyType = document.getElementById('historyType').value;
+      const historyCategory = document.getElementById('historyCategory').value;
+      
+      let filteredData = historyData.filter(item => item.type !== 'NFA_RICE');
+      if (historyType !== 'all') {
+        filteredData = filteredData.filter(item => item.type === historyType);
+      }
+      if (historyCategory !== 'all') {
+        const [type, category] = historyCategory.split('|');
+        filteredData = filteredData.filter(item => 
+          item.type === type && item.category === category
+        );
+      }
+      
+      const totalPages = Math.ceil(filteredData.length / HISTORY_PAGE_SIZE);
+      if (currentHistoryPage < totalPages) {
+        currentHistoryPage++;
+        displayPriceHistory(historyData, historyType, historyCategory);
+      }
+    }
+
+    function previousHistoryPage() {
+      if (currentHistoryPage > 1) {
+        currentHistoryPage--;
+        const historyType = document.getElementById('historyType').value;
+        const historyCategory = document.getElementById('historyCategory').value;
+        displayPriceHistory(historyData, historyType, historyCategory);
+      }
     }
 
     function getHistoryTitle(historyType, historyCategory) {
@@ -835,6 +921,13 @@
 
       try {
         console.log('Making prediction request:', { riceType, category, weeksAhead });
+        
+        // Test if prediction endpoint is available first
+        const healthCheck = await fetch(`${API_URL}/health`);
+        if (!healthCheck.ok) {
+          throw new Error('Backend server is not responding');
+        }
+        
         const response = await fetch(`${API_URL}/predict`, {
           method: 'POST',
           headers: {
@@ -847,20 +940,28 @@
           })
         });
 
+        console.log('Prediction response status:', response.status);
+        
         if (response.ok) {
           const data = await response.json();
           console.log('Prediction result:', data);
-          priceDiv.textContent = `₱${data.predicted_price}/kg`;
-          detailsDiv.textContent = `Presyo ng ${getDisplayName(riceType, category)} para sa ${data.prediction_date}`;
-          resultDiv.style.display = 'block';
+          
+          if (data.predicted_price) {
+            priceDiv.textContent = `₱${parseFloat(data.predicted_price).toFixed(2)}/kg`;
+            detailsDiv.textContent = `Presyo ng ${getDisplayName(riceType, category)} para sa ${data.prediction_date || `${weeksAhead} linggo mula ngayon`}`;
+            resultDiv.style.display = 'block';
+          } else {
+            throw new Error('Walang prediction result na naibalik');
+          }
         } else {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'API response not OK');
+          const errorText = await response.text();
+          console.error('Prediction error response:', errorText);
+          throw new Error(`Prediction failed: ${response.status} ${response.statusText}`);
         }
       } catch (error) {
         console.error('Prediction error:', error);
         priceDiv.textContent = '₱--.--/kg';
-        detailsDiv.textContent = 'Serbisyo pansamantalang hindi available: ' + error.message;
+        detailsDiv.textContent = `Hindi makabuo ng hula: ${error.message}. Siguraduhing ang iyong CSV file ay may sapat na datos.`;
         resultDiv.style.display = 'block';
       } finally {
         loadingDiv.style.display = 'none';
