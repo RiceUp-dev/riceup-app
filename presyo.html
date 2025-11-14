@@ -265,7 +265,7 @@
     <!-- Current Prices Section -->
     <div class="price-container">
       <div class="dropdown-container">
-        <select id="priceTypeFilter" onchange="loadCurrentPrices()">
+        <select id="priceTypeFilter" onchange="filterCurrentPrices()">
           <option value="all">Lahat ng Uri ng Bigas</option>
           <option value="KADIWA">Kadiwa</option>
           <option value="LOCAL">Local</option>
@@ -295,14 +295,14 @@
       </h3>
       
       <div class="history-controls">
-        <select id="historyType" onchange="showPriceHistory()">
+        <select id="historyType" onchange="filterHistory()">
           <option value="all">Lahat ng Uri</option>
           <option value="KADIWA">Kadiwa</option>
           <option value="LOCAL">Local</option>
           <option value="IMPORTED">Imported</option>
         </select>
         
-        <select id="historyCategory" onchange="showPriceHistory()">
+        <select id="historyCategory" onchange="filterHistory()">
           <option value="all">Lahat ng Kategorya</option>
           <!-- Options will be loaded dynamically -->
         </select>
@@ -386,8 +386,10 @@
     // 🔄 UPDATE THIS WITH YOUR BACKEND URL
     const API_URL = 'https://riceup-backend.onrender.com';
 
-    // Store available types globally
+    // Store available types and current data globally
     let availableRiceTypes = {};
+    let currentPricesData = [];
+    let currentFilter = 'all';
 
     // Load available rice types from backend
     async function loadRiceTypes() {
@@ -488,7 +490,9 @@
       const typeNames = {
         'KADIWA': 'Kadiwa',
         'LOCAL': 'Local',
-        'IMPORTED': 'Imported'
+        'IMPORTED': 'Imported',
+        'KADIWA_RICE_FOR_ALL': 'Kadiwa',
+        'NFA_RICE': 'NFA'
       };
       
       const categoryNames = {
@@ -504,7 +508,6 @@
 
     // Load current prices
     async function loadCurrentPrices() {
-      const filterType = document.getElementById('priceTypeFilter').value;
       const loadingIndicator = document.getElementById('loadingIndicator');
       const riceContainer = document.getElementById('riceTypesContainer');
       
@@ -519,14 +522,31 @@
         if (response.ok) {
           const data = await response.json();
           console.log('Received current prices:', data);
-          displayCurrentPrices(data.current_prices, filterType, data.as_of_date);
+          currentPricesData = data.current_prices || [];
+          displayCurrentPrices(currentPricesData, 'all', data.as_of_date);
         } else {
           console.error('API response not OK for current prices:', response.status);
           throw new Error('API response not OK');
         }
       } catch (error) {
         console.error('Error loading prices:', error);
-        displayFallbackPrices(filterType);
+        displayFallbackPrices('all');
+      }
+    }
+
+    // Filter current prices
+    function filterCurrentPrices() {
+      const filterType = document.getElementById('priceTypeFilter').value;
+      currentFilter = filterType;
+      console.log('Filtering prices by:', filterType);
+      
+      if (currentPricesData.length > 0) {
+        // Use the already loaded data
+        const asOfDate = document.getElementById('lastUpdated').textContent.replace('Huling na-update: ', '');
+        displayCurrentPrices(currentPricesData, filterType, asOfDate);
+      } else {
+        // Reload data if not available
+        loadCurrentPrices();
       }
     }
 
@@ -542,6 +562,12 @@
       console.log('Displaying prices:', prices);
       console.log('Filter type:', filterType);
 
+      if (!prices || prices.length === 0) {
+        riceContainer.innerHTML = '<div class="error">Walang presyo na available.</div>';
+        priceBox.innerHTML = '<p>Walang datos na available</p>';
+        return;
+      }
+
       // Filter prices if needed and exclude NFA rice
       let filteredPrices = prices.filter(price => price.type !== 'NFA_RICE');
       if (filterType !== 'all') {
@@ -552,6 +578,7 @@
 
       if (filteredPrices.length === 0) {
         riceContainer.innerHTML = '<div class="error">Walang presyo na available para sa napiling uri.</div>';
+        priceBox.innerHTML = '<p>Walang datos para sa napiling uri</p>';
         return;
       }
 
@@ -562,13 +589,16 @@
         riceElement.className = 'rice-type';
         riceElement.innerHTML = `
           <span class="rice-type-name">${displayName}</span>
-          <span class="rice-type-price">₱${price.price}/kg</span>
+          <span class="rice-type-price">₱${typeof price.price === 'number' ? price.price.toFixed(2) : price.price}/kg</span>
         `;
         riceContainer.appendChild(riceElement);
       });
 
       // Calculate average price
-      const averagePrice = filteredPrices.reduce((sum, price) => sum + price.price, 0) / filteredPrices.length;
+      const averagePrice = filteredPrices.reduce((sum, price) => {
+        const priceValue = typeof price.price === 'number' ? price.price : parseFloat(price.price);
+        return sum + priceValue;
+      }, 0) / filteredPrices.length;
       
       priceBox.innerHTML = `
         <p>Average Presyo:</p>
@@ -576,7 +606,13 @@
         <p><small>Batay sa ${filteredPrices.length} uri ng bigas</small></p>
       `;
 
-      lastUpdated.textContent = `Huling na-update: ${new Date(asOfDate).toLocaleDateString('en-PH')}`;
+      if (asOfDate) {
+        try {
+          lastUpdated.textContent = `Huling na-update: ${new Date(asOfDate).toLocaleDateString('en-PH')}`;
+        } catch (e) {
+          lastUpdated.textContent = `Huling na-update: ${asOfDate}`;
+        }
+      }
     }
 
     function displayFallbackPrices(filterType) {
@@ -587,18 +623,18 @@
       loadingIndicator.style.display = 'none';
       
       const fallbackPrices = [
-        { type: "KADIWA", category: "Premium", name: "Kadiwa - Premium", price: "₱43.00" },
-        { type: "KADIWA", category: "Well_Milled", name: "Kadiwa - Well Milled", price: "₱35.00" },
-        { type: "KADIWA", category: "Regular_Milled", name: "Kadiwa - Regular Milled", price: "₱33.00" },
-        { type: "KADIWA", category: "P20", name: "Kadiwa - P20", price: "₱20.00" },
-        { type: "LOCAL", category: "Special", name: "Local - Special", price: "₱48.75" },
-        { type: "LOCAL", category: "Premium", name: "Local - Premium", price: "₱45.25" },
-        { type: "LOCAL", category: "Well_Milled", name: "Local - Well Milled", price: "₱42.50" },
-        { type: "LOCAL", category: "Regular_Milled", name: "Local - Regular Milled", price: "₱39.75" },
-        { type: "IMPORTED", category: "Special", name: "Imported - Special", price: "₱52.25" },
-        { type: "IMPORTED", category: "Premium", name: "Imported - Premium", price: "₱48.75" },
-        { type: "IMPORTED", category: "Well_Milled", name: "Imported - Well Milled", price: "₱45.80" },
-        { type: "IMPORTED", category: "Regular_Milled", name: "Imported - Regular Milled", price: "₱43.00" }
+        { type: "KADIWA", category: "Premium", price: 43.00 },
+        { type: "KADIWA", category: "Well_Milled", price: 35.00 },
+        { type: "KADIWA", category: "Regular_Milled", price: 33.00 },
+        { type: "KADIWA", category: "P20", price: 20.00 },
+        { type: "LOCAL", category: "Special", price: 48.75 },
+        { type: "LOCAL", category: "Premium", price: 45.25 },
+        { type: "LOCAL", category: "Well_Milled", price: 42.50 },
+        { type: "LOCAL", category: "Regular_Milled", price: 39.75 },
+        { type: "IMPORTED", category: "Special", price: 52.25 },
+        { type: "IMPORTED", category: "Premium", price: 48.75 },
+        { type: "IMPORTED", category: "Well_Milled", price: 45.80 },
+        { type: "IMPORTED", category: "Regular_Milled", price: 43.00 }
       ];
 
       let filteredPrices = fallbackPrices;
@@ -607,30 +643,31 @@
       }
 
       filteredPrices.forEach(rice => {
+        const displayName = getDisplayName(rice.type, rice.category);
         const riceElement = document.createElement('div');
         riceElement.className = 'rice-type';
         riceElement.innerHTML = `
-          <span class="rice-type-name">${rice.name}</span>
-          <span class="rice-type-price">${rice.price}/kg</span>
+          <span class="rice-type-name">${displayName}</span>
+          <span class="rice-type-price">₱${rice.price.toFixed(2)}/kg</span>
         `;
         riceContainer.appendChild(riceElement);
       });
 
-      const averagePrice = filteredPrices.reduce((sum, rice) => {
-        const price = parseFloat(rice.price.replace('₱', ''));
-        return sum + price;
-      }, 0) / filteredPrices.length;
+      const averagePrice = filteredPrices.reduce((sum, rice) => sum + rice.price, 0) / filteredPrices.length;
 
       priceBox.innerHTML = `
         <p>Average Presyo ng Bigas:</p>
         <p>₱${averagePrice.toFixed(2)}/kg</p>
+        <p><small>Batay sa ${filteredPrices.length} uri ng bigas</small></p>
       `;
+      
+      document.getElementById('lastUpdated').textContent = 'Huling na-update: Fallback Data';
     }
 
     // Price History
+    let historyData = [];
+    
     async function showPriceHistory() {
-      const historyType = document.getElementById('historyType').value;
-      const historyCategory = document.getElementById('historyCategory').value;
       const historyContent = document.getElementById('historyContent');
       const historyLoading = document.getElementById('historyLoading');
 
@@ -638,28 +675,14 @@
 
       try {
         let url = `${API_URL}/prices/historical`;
-        const params = new URLSearchParams();
-        
-        if (historyType !== 'all') {
-          params.append('type', historyType);
-        }
-        if (historyCategory !== 'all') {
-          const [type, category] = historyCategory.split('|');
-          params.append('type', type);
-          params.append('category', category);
-        }
-        
-        if (params.toString()) {
-          url += '?' + params.toString();
-        }
-
         console.log('Fetching history from:', url);
         const response = await fetch(url);
         
         if (response.ok) {
           const data = await response.json();
           console.log('Received history data:', data);
-          displayPriceHistory(data.historical_data, historyType, historyCategory);
+          historyData = data.historical_data || [];
+          filterHistory();
         } else {
           console.error('API response not OK for history:', response.status);
           throw new Error('API response not OK');
@@ -672,19 +695,45 @@
       }
     }
 
+    function filterHistory() {
+      const historyType = document.getElementById('historyType').value;
+      const historyCategory = document.getElementById('historyCategory').value;
+      
+      console.log('Filtering history:', { historyType, historyCategory });
+      
+      if (historyData.length > 0) {
+        displayPriceHistory(historyData, historyType, historyCategory);
+      } else {
+        showPriceHistory();
+      }
+    }
+
     function displayPriceHistory(data, historyType, historyCategory) {
       const historyContent = document.getElementById('historyContent');
       
       // Filter out NFA rice data
-      data = data.filter(item => item.type !== 'NFA_RICE');
+      let filteredData = data.filter(item => item.type !== 'NFA_RICE');
       
-      if (!data || data.length === 0) {
+      // Apply type filter
+      if (historyType !== 'all') {
+        filteredData = filteredData.filter(item => item.type === historyType);
+      }
+      
+      // Apply category filter
+      if (historyCategory !== 'all') {
+        const [type, category] = historyCategory.split('|');
+        filteredData = filteredData.filter(item => 
+          item.type === type && item.category === category
+        );
+      }
+      
+      if (!filteredData || filteredData.length === 0) {
         historyContent.innerHTML = '<div class="error">Walang datos na available para sa napiling uri at kategorya.</div>';
         return;
       }
 
       // Sort by date (newest first)
-      data.sort((a, b) => new Date(b.date) - new Date(a.date));
+      filteredData.sort((a, b) => new Date(b.date) - new Date(a.date));
 
       let tableHTML = `
         <h4 style="text-align: center; margin-bottom: 15px; color: #5B3A29;">
@@ -703,13 +752,16 @@
           <tbody>
       `;
       
-      data.forEach((item, index) => {
+      filteredData.forEach((item, index) => {
         let change = '';
         let changeClass = '';
         
-        if (index < data.length - 1) {
-          const prevPrice = data[index + 1].price;
-          const changePercent = ((item.price - prevPrice) / prevPrice * 100).toFixed(1);
+        if (index < filteredData.length - 1) {
+          const prevPrice = filteredData[index + 1].price;
+          const currentPrice = typeof item.price === 'number' ? item.price : parseFloat(item.price);
+          const prevPriceNum = typeof prevPrice === 'number' ? prevPrice : parseFloat(prevPrice);
+          
+          const changePercent = ((currentPrice - prevPriceNum) / prevPriceNum * 100).toFixed(1);
           
           if (changePercent > 0) {
             change = `+${changePercent}%`;
@@ -722,12 +774,14 @@
           }
         }
         
+        const priceValue = typeof item.price === 'number' ? item.price.toFixed(2) : parseFloat(item.price).toFixed(2);
+        
         tableHTML += `
           <tr>
             <td>${new Date(item.date).toLocaleDateString('en-PH')}</td>
             <td>${getDisplayName(item.type, '').split(' - ')[0]}</td>
             <td>${getDisplayName('', item.category).split(' - ')[1] || item.category}</td>
-            <td><strong>₱${item.price.toFixed(2)}</strong></td>
+            <td><strong>₱${priceValue}</strong></td>
             <td class="${changeClass}">${change}</td>
           </tr>
         `;
@@ -737,7 +791,7 @@
           </tbody>
         </table>
         <div style="text-align: center; margin-top: 15px; font-size: 12px; color: #666;">
-          Ipinapakita ang ${data.length} na rekord
+          Ipinapakita ang ${filteredData.length} na rekord
         </div>
       `;
       
