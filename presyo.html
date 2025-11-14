@@ -219,6 +219,25 @@
       background-color: #5a7a1c;
     }
 
+    .debug-info {
+      background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 5px;
+      padding: 10px;
+      margin: 10px 0;
+      font-size: 12px;
+      color: #6c757d;
+    }
+
+    .data-warning {
+      background-color: #fff3cd;
+      color: #856404;
+      padding: 10px;
+      border-radius: 5px;
+      margin: 10px 0;
+      border-left: 4px solid #ffc107;
+    }
+
     .bottom-nav {
       position: fixed;
       bottom: 0;
@@ -307,6 +326,12 @@
       <p><i class="fas fa-exclamation-triangle"></i> Hindi makakonekta sa server. Pakisubukan muli mamaya.</p>
     </div>
 
+    <!-- Debug Info -->
+    <div id="debugInfo" class="debug-info" style="display: none;">
+      <strong>Debug Information:</strong>
+      <div id="debugContent"></div>
+    </div>
+
     <!-- Current Prices Section -->
     <div class="price-container">
       <div class="dropdown-container">
@@ -316,6 +341,11 @@
           <option value="LOCAL">Local</option>
           <option value="IMPORTED">Imported</option>
         </select>
+      </div>
+
+      <div id="dataWarning" class="data-warning" style="display: none;">
+        <i class="fas fa-exclamation-triangle"></i> 
+        <span id="warningText">Ang ipinapakitang datos ay maaaring luma. Pakisiguro na ang backend ay naglo-load ng tamang CSV file.</span>
       </div>
 
       <div class="rice-types-container" id="riceTypesContainer">
@@ -575,11 +605,11 @@
           console.log('Received current prices:', data);
           currentPricesData = data.current_prices || [];
           
-          // Check if we have recent data
-          const hasRecentData = checkForRecentData(currentPricesData);
-          if (!hasRecentData) {
-            console.warn('No recent data found in current prices');
-          }
+          // Debug: Show what data we received
+          showDebugInfo('Current Prices Data', currentPricesData);
+          
+          // Check data freshness
+          checkDataFreshness(currentPricesData);
           
           displayCurrentPrices(currentPricesData, 'all', data.as_of_date);
         } else {
@@ -592,21 +622,72 @@
       }
     }
 
-    // Check if we have data from 2025 or later
-    function checkForRecentData(prices) {
+    // Check if data is recent (2025 or newer)
+    function checkDataFreshness(prices) {
+      if (!prices || prices.length === 0) return;
+      
       const currentYear = new Date().getFullYear();
+      let latestDate = null;
       let hasRecentData = false;
       
       prices.forEach(price => {
         if (price.date) {
-          const priceYear = new Date(price.date).getFullYear();
-          if (priceYear >= currentYear) {
+          const priceDate = new Date(price.date);
+          if (!latestDate || priceDate > latestDate) {
+            latestDate = priceDate;
+          }
+          if (priceDate.getFullYear() >= currentYear) {
             hasRecentData = true;
           }
         }
       });
       
+      const warningDiv = document.getElementById('dataWarning');
+      const warningText = document.getElementById('warningText');
+      
+      if (latestDate) {
+        const latestDateStr = latestDate.toLocaleDateString('en-PH');
+        const latestYear = latestDate.getFullYear();
+        
+        if (latestYear < currentYear) {
+          warningText.textContent = `⚠️ ANG DATOS AY LUMANG 2024 DATA! Pinakabagong petsa: ${latestDateStr}. Ang backend ay hindi naglo-load ng iyong 2025 CSV data.`;
+          warningDiv.style.display = 'block';
+          warningDiv.style.backgroundColor = '#f8d7da';
+          warningDiv.style.color = '#721c24';
+          warningDiv.style.borderLeft = '4px solid #dc3545';
+        } else if (latestYear === currentYear) {
+          const monthsAgo = (new Date().getMonth() - latestDate.getMonth()) + (new Date().getFullYear() - latestDate.getFullYear()) * 12;
+          if (monthsAgo > 3) {
+            warningText.textContent = `ℹ️ Ang datos ay medyo luma na. Pinakabagong petsa: ${latestDateStr}`;
+            warningDiv.style.display = 'block';
+          } else {
+            warningDiv.style.display = 'none';
+          }
+        }
+      }
+      
       return hasRecentData;
+    }
+
+    // Show debug information
+    function showDebugInfo(title, data) {
+      const debugInfo = document.getElementById('debugInfo');
+      const debugContent = document.getElementById('debugContent');
+      
+      if (data && data.length > 0) {
+        const sample = data.slice(0, 3); // Show first 3 items
+        const dates = data.map(item => item.date).filter(date => date);
+        const uniqueDates = [...new Set(dates)].sort();
+        
+        debugContent.innerHTML = `
+          <strong>${title}:</strong><br>
+          - Total items: ${data.length}<br>
+          - Date range: ${uniqueDates[0] || 'N/A'} to ${uniqueDates[uniqueDates.length - 1] || 'N/A'}<br>
+          - Sample data: ${JSON.stringify(sample)}<br>
+          - All dates: ${uniqueDates.join(', ')}
+        `;
+        debugInfo.style.display = 'block';
+      }
     }
 
     // Filter current prices
@@ -713,15 +794,14 @@
           console.log('Received history data:', data);
           historyData = data.historical_data || [];
           
+          // Debug: Show what data we received
+          showDebugInfo('History Data', historyData);
+          
           // Sort by date (newest first) to show latest data first
           historyData.sort((a, b) => new Date(b.date) - new Date(a.date));
           
-          // Check if we have recent data
-          const hasRecentData = checkForRecentData(historyData);
-          if (!hasRecentData) {
-            console.warn('No recent data found in history');
-            showWarning('historyContent', 'Paalala: Ang datos na ipinapakita ay mula sa nakaraang taon. Siguraduhin na ang iyong CSV file ay may kasalukuyang datos para sa 2025.');
-          }
+          // Check data freshness
+          checkDataFreshness(historyData);
           
           currentHistoryPage = 1;
           filterHistory();
@@ -990,17 +1070,6 @@
     function showError(containerId, message) {
       const container = document.getElementById(containerId);
       container.innerHTML = `<div class="error">${message}</div>`;
-    }
-
-    function showWarning(containerId, message) {
-      const container = document.getElementById(containerId);
-      const existingContent = container.innerHTML;
-      container.innerHTML = `
-        <div style="background-color: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #ffc107;">
-          <i class="fas fa-exclamation-triangle"></i> ${message}
-        </div>
-        ${existingContent}
-      `;
     }
 
     // Initialize the application
