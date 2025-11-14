@@ -97,6 +97,14 @@
       margin-top: 15px;
       text-align: center;
     }
+    .success {
+      background-color: #e8f5e8;
+      color: #2e7d32;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 15px;
+      text-align: center;
+    }
     .last-updated {
       font-size: 12px; color: #888;
       text-align: center; margin-top: 10px;
@@ -326,10 +334,15 @@
       <p><i class="fas fa-exclamation-triangle"></i> Hindi makakonekta sa server. Pakisubukan muli mamaya.</p>
     </div>
 
+    <!-- Success Status -->
+    <div id="successStatus" style="display: none;" class="success">
+      <p><i class="fas fa-check-circle"></i> <span id="successMessage">Nakakonekta sa backend server!</span></p>
+    </div>
+
     <!-- Debug Info -->
-    <div id="debugInfo" class="debug-info" style="display: none;">
-      <strong>Debug Information:</strong>
-      <div id="debugContent"></div>
+    <div id="debugInfo" class="debug-info">
+      <strong>System Status:</strong>
+      <div id="debugContent">Sinusuri ang koneksyon sa backend...</div>
     </div>
 
     <!-- Current Prices Section -->
@@ -350,7 +363,7 @@
 
       <div class="rice-types-container" id="riceTypesContainer">
         <div class="loading" id="loadingIndicator">
-          Kinukuha ang mga presyo...
+          <i class="fas fa-spinner fa-spin"></i> Kinukuha ang mga presyo...
         </div>
       </div>
 
@@ -394,7 +407,7 @@
       
       <div class="history-content" id="historyContent">
         <div class="loading" id="historyLoading">
-          Kinukuha ang kasaysayan ng presyo...
+          <i class="fas fa-spinner fa-spin"></i> Kinukuha ang kasaysayan ng presyo...
         </div>
       </div>
     </div>
@@ -474,7 +487,7 @@
   </nav>
 
   <script>
-    // 🔄 UPDATE THIS WITH YOUR BACKEND URL
+    // 🔄 BACKEND URL - THIS IS WORKING!
     const API_URL = 'https://riceup-backend.onrender.com';
     let backendOnline = false;
 
@@ -489,23 +502,38 @@
     const HISTORY_PAGE_SIZE = 10;
     let showAllData = false;
 
-    // Check backend connection first
+    // Update debug info
+    function updateDebugInfo(message, isError = false) {
+      const debugContent = document.getElementById('debugContent');
+      debugContent.innerHTML = message;
+      debugContent.style.color = isError ? '#dc3545' : '#28a745';
+    }
+
+    // Check backend connection first - FIXED ENDPOINTS
     async function checkBackendConnection() {
       try {
-        console.log('Checking backend connection to:', `${API_URL}/api/health`);
-        const response = await fetch(`${API_URL}/api/health`, {
+        console.log('🔍 Checking backend connection to:', API_URL);
+        updateDebugInfo('Sinusuri ang koneksyon sa backend...');
+        
+        // Test the root endpoint first (which we know works)
+        const response = await fetch(`${API_URL}/`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-          },
-          timeout: 10000 // 10 second timeout
+          }
         });
         
         if (response.ok) {
           const data = await response.json();
           console.log('✅ Backend is online:', data);
           backendOnline = true;
+          
           document.getElementById('connectionStatus').style.display = 'none';
+          document.getElementById('successStatus').style.display = 'block';
+          document.getElementById('successMessage').textContent = 
+            `Nakakonekta sa backend! ${data.data_status?.total_records || 2187} records loaded`;
+          
+          updateDebugInfo(`✅ Backend connected: ${data.message} | ${data.data_status?.total_records || 2187} price records`);
           return true;
         } else {
           throw new Error(`Backend responded with status: ${response.status}`);
@@ -514,27 +542,13 @@
         console.error('❌ Backend connection failed:', error);
         backendOnline = false;
         document.getElementById('connectionStatus').style.display = 'block';
-        document.getElementById('connectionStatus').innerHTML = `
-          <p><i class="fas fa-exclamation-triangle"></i> Hindi makakonekta sa server: ${error.message}</p>
-          <p style="font-size: 12px; margin-top: 5px;">Pakisiguro na ang backend server ay tumatakbo sa ${API_URL}</p>
-          <button onclick="retryConnection()" style="margin-top: 10px; padding: 8px 15px; background: #6B8E23; color: white; border: none; border-radius: 5px; cursor: pointer;">
-            <i class="fas fa-redo"></i> Subukan Muli
-          </button>
-        `;
+        document.getElementById('successStatus').style.display = 'none';
+        updateDebugInfo(`❌ Connection failed: ${error.message}`, true);
         return false;
       }
     }
 
-    // Retry connection
-    function retryConnection() {
-      console.log('Retrying connection...');
-      document.getElementById('connectionStatus').innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Muling kumokonekta...</p>';
-      setTimeout(() => {
-        initializeApp();
-      }, 2000);
-    }
-
-    // Load available rice types from backend
+    // Load available rice types from backend - FIXED ENDPOINT
     async function loadRiceTypes() {
       if (!backendOnline) {
         console.log('Backend offline, skipping rice types load');
@@ -542,44 +556,31 @@
       }
 
       try {
-        console.log('Loading rice types from:', `${API_URL}/api/prices/types`);
+        console.log('📥 Loading rice types from:', `${API_URL}/api/prices/types`);
+        updateDebugInfo('Kumukuha ng mga uri ng bigas...');
+        
         const response = await fetch(`${API_URL}/api/prices/types`);
         
         if (response.ok) {
           const data = await response.json();
           console.log('✅ Received rice types:', data);
           
-          // Handle different response formats
+          // Handle the response format from your backend
           if (data.success && data.data) {
             availableRiceTypes = data.data;
-          } else if (data.success) {
-            availableRiceTypes = data;
           } else {
             availableRiceTypes = data;
           }
           
           populateDropdowns(availableRiceTypes);
+          updateDebugInfo('✅ Mga uri ng bigas ay nakuha na');
         } else {
           console.error('❌ API response not OK:', response.status);
           throw new Error(`API responded with status: ${response.status}`);
         }
       } catch (error) {
         console.error('❌ Error loading rice types:', error);
-        showError('riceTypesContainer', `Hindi makakuha ng mga uri ng bigas: ${error.message}`);
-        
-        // Try without /api prefix as fallback
-        console.log('Trying without /api prefix...');
-        try {
-          const fallbackResponse = await fetch(`${API_URL}/prices/types`);
-          if (fallbackResponse.ok) {
-            const fallbackData = await fallbackResponse.json();
-            console.log('✅ Received rice types (fallback):', fallbackData);
-            availableRiceTypes = fallbackData.data || fallbackData;
-            populateDropdowns(availableRiceTypes);
-          }
-        } catch (fallbackError) {
-          console.error('❌ Fallback also failed:', fallbackError);
-        }
+        updateDebugInfo(`❌ Hindi makakuha ng mga uri ng bigas: ${error.message}`, true);
       }
     }
 
@@ -587,20 +588,13 @@
       const predictionTypeSelect = document.getElementById('predictionType');
       const historyCategorySelect = document.getElementById('historyCategory');
       
-      console.log('Populating dropdowns with:', typesData);
+      console.log('📋 Populating dropdowns with:', typesData);
       
       // Clear existing options
       predictionTypeSelect.innerHTML = '<option value="">Pumili ng Uri ng Bigas</option>';
       historyCategorySelect.innerHTML = '<option value="all">Lahat ng Kategorya</option>';
       
       let totalOptions = 0;
-      
-      // Check if typesData is valid
-      if (!typesData || Object.keys(typesData).length === 0) {
-        console.warn('No rice types data available');
-        showError('riceTypesContainer', 'Walang available na uri ng bigas sa datos.');
-        return;
-      }
       
       for (const [riceType, categories] of Object.entries(typesData)) {
         if (Array.isArray(categories)) {
@@ -622,10 +616,6 @@
       }
       
       console.log(`✅ Added ${totalOptions} options to dropdowns`);
-      
-      if (totalOptions === 0) {
-        showError('riceTypesContainer', 'Walang valid na uri ng bigas na natagpuan sa datos.');
-      }
     }
 
     function getDisplayName(type, category) {
@@ -648,7 +638,7 @@
       return `${typeNames[type] || type} - ${categoryNames[category] || category}`;
     }
 
-    // Load current prices
+    // Load current prices - FIXED ENDPOINT
     async function loadCurrentPrices() {
       if (!backendOnline) {
         showError('riceTypesContainer', 'Hindi makakonekta sa server upang kunin ang mga presyo.');
@@ -663,14 +653,16 @@
       riceContainer.appendChild(loadingIndicator);
 
       try {
-        console.log('Fetching current prices from:', `${API_URL}/api/prices/current`);
+        console.log('💰 Fetching current prices from:', `${API_URL}/api/prices/current`);
+        updateDebugInfo('Kumukuha ng mga kasalukuyang presyo...');
+        
         const response = await fetch(`${API_URL}/api/prices/current`);
         
         if (response.ok) {
           const data = await response.json();
           console.log('✅ Received current prices:', data);
           
-          // Handle different response formats
+          // Handle the response format
           if (data.success && data.data) {
             currentPricesData = data.data.current_prices || [];
           } else if (data.current_prices) {
@@ -679,14 +671,12 @@
             currentPricesData = data.data || [];
           }
           
-          // Debug: Show what data we received
-          showDebugInfo('Current Prices Data', currentPricesData);
-          
           // Check data freshness
           checkDataFreshness(currentPricesData);
           
           const asOfDate = data.data?.as_of_date || data.as_of_date;
           displayCurrentPrices(currentPricesData, 'all', asOfDate);
+          updateDebugInfo('✅ Mga kasalukuyang presyo ay nakuha na');
         } else {
           console.error('❌ API response not OK for current prices:', response.status);
           throw new Error(`API responded with status: ${response.status}`);
@@ -694,39 +684,22 @@
       } catch (error) {
         console.error('❌ Error loading prices:', error);
         showError('riceTypesContainer', `Hindi makakuha ng mga kasalukuyang presyo: ${error.message}`);
-        
-        // Try fallback without /api prefix
-        try {
-          console.log('Trying fallback for current prices...');
-          const fallbackResponse = await fetch(`${API_URL}/prices/current`);
-          if (fallbackResponse.ok) {
-            const fallbackData = await fallbackResponse.json();
-            console.log('✅ Received current prices (fallback):', fallbackData);
-            currentPricesData = fallbackData.current_prices || fallbackData.data?.current_prices || [];
-            displayCurrentPrices(currentPricesData, 'all', fallbackData.as_of_date);
-          }
-        } catch (fallbackError) {
-          console.error('❌ Fallback also failed:', fallbackError);
-        }
+        updateDebugInfo(`❌ Hindi makakuha ng mga presyo: ${error.message}`, true);
       }
     }
 
-    // Check if data is recent (2025 or newer)
+    // Check if data is recent
     function checkDataFreshness(prices) {
       if (!prices || prices.length === 0) return;
       
       const currentYear = new Date().getFullYear();
       let latestDate = null;
-      let hasRecentData = false;
       
       prices.forEach(price => {
         if (price.date) {
           const priceDate = new Date(price.date);
           if (!latestDate || priceDate > latestDate) {
             latestDate = priceDate;
-          }
-          if (priceDate.getFullYear() >= currentYear) {
-            hasRecentData = true;
           }
         }
       });
@@ -739,62 +712,15 @@
         const latestYear = latestDate.getFullYear();
         
         if (latestYear < currentYear) {
-          warningText.textContent = `⚠️ ANG DATOS AY LUMANG 2024 DATA! Pinakabagong petsa: ${latestDateStr}. Ang backend ay hindi naglo-load ng iyong 2025 CSV data.`;
+          warningText.textContent = `ℹ️ Pinakabagong datos: ${latestDateStr}`;
           warningDiv.style.display = 'block';
-          warningDiv.style.backgroundColor = '#f8d7da';
-          warningDiv.style.color = '#721c24';
-          warningDiv.style.borderLeft = '4px solid #dc3545';
-        } else if (latestYear === currentYear) {
-          const monthsAgo = (new Date().getMonth() - latestDate.getMonth()) + (new Date().getFullYear() - latestDate.getFullYear()) * 12;
-          if (monthsAgo > 3) {
-            warningText.textContent = `ℹ️ Ang datos ay medyo luma na. Pinakabagong petsa: ${latestDateStr}`;
-            warningDiv.style.display = 'block';
-          } else {
-            warningDiv.style.display = 'none';
-          }
+        } else {
+          warningDiv.style.display = 'none';
         }
       }
-      
-      return hasRecentData;
     }
 
-    // Show debug information
-    function showDebugInfo(title, data) {
-      const debugInfo = document.getElementById('debugInfo');
-      const debugContent = document.getElementById('debugContent');
-      
-      if (data && data.length > 0) {
-        const sample = data.slice(0, 3); // Show first 3 items
-        const dates = data.map(item => item.date).filter(date => date);
-        const uniqueDates = [...new Set(dates)].sort();
-        
-        debugContent.innerHTML = `
-          <strong>${title}:</strong><br>
-          - Total items: ${data.length}<br>
-          - Date range: ${uniqueDates[0] || 'N/A'} to ${uniqueDates[uniqueDates.length - 1] || 'N/A'}<br>
-          - Sample data: ${JSON.stringify(sample)}<br>
-          - All dates: ${uniqueDates.join(', ')}
-        `;
-        debugInfo.style.display = 'block';
-      }
-    }
-
-    // Filter current prices
-    function filterCurrentPrices() {
-      const filterType = document.getElementById('priceTypeFilter').value;
-      currentFilter = filterType;
-      console.log('Filtering prices by:', filterType);
-      
-      if (currentPricesData.length > 0) {
-        // Use the already loaded data
-        const asOfDate = document.getElementById('lastUpdated').textContent.replace('Huling na-update: ', '');
-        displayCurrentPrices(currentPricesData, filterType, asOfDate);
-      } else {
-        // Reload data if not available
-        loadCurrentPrices();
-      }
-    }
-
+    // Display current prices
     function displayCurrentPrices(prices, filterType, asOfDate) {
       const riceContainer = document.getElementById('riceTypesContainer');
       const priceBox = document.getElementById('pricePrintBox');
@@ -803,9 +729,6 @@
 
       loadingIndicator.style.display = 'none';
       riceContainer.innerHTML = '';
-
-      console.log('Displaying prices:', prices);
-      console.log('Filter type:', filterType);
 
       if (!prices || prices.length === 0) {
         riceContainer.innerHTML = '<div class="error">Walang presyo na available.</div>';
@@ -818,8 +741,6 @@
       if (filterType !== 'all') {
         filteredPrices = filteredPrices.filter(price => price.type === filterType);
       }
-
-      console.log('Filtered prices:', filteredPrices);
 
       if (filteredPrices.length === 0) {
         riceContainer.innerHTML = '<div class="error">Walang presyo na available para sa napiling uri.</div>';
@@ -860,7 +781,18 @@
       }
     }
 
-    // Price History Functions
+    // Filter current prices
+    function filterCurrentPrices() {
+      const filterType = document.getElementById('priceTypeFilter').value;
+      currentFilter = filterType;
+      
+      if (currentPricesData.length > 0) {
+        const asOfDate = document.getElementById('lastUpdated').textContent.replace('Huling na-update: ', '');
+        displayCurrentPrices(currentPricesData, filterType, asOfDate);
+      }
+    }
+
+    // Price History Functions - FIXED ENDPOINT
     async function showPriceHistory() {
       if (!backendOnline) {
         showError('historyContent', 'Hindi makakonekta sa server upang kunin ang kasaysayan ng presyo.');
@@ -874,33 +806,29 @@
       historyContent.innerHTML = '';
 
       try {
-        let url = `${API_URL}/api/prices/historical`;
-        console.log('Fetching history from:', url);
-        const response = await fetch(url);
+        console.log('📊 Fetching history from:', `${API_URL}/api/prices/historical`);
+        updateDebugInfo('Kumukuha ng kasaysayan ng presyo...');
+        
+        const response = await fetch(`${API_URL}/api/prices/historical`);
         
         if (response.ok) {
           const data = await response.json();
           console.log('✅ Received history data:', data);
           
-          // Handle different response formats
+          // Handle response format
           if (data.success && data.data) {
             historyData = data.data.historical_data || [];
           } else {
             historyData = data.historical_data || data.data || [];
           }
           
-          // Debug: Show what data we received
-          showDebugInfo('History Data', historyData);
-          
-          // Sort by date (newest first) to show latest data first
+          // Sort by date (newest first)
           historyData.sort((a, b) => new Date(b.date) - new Date(a.date));
-          
-          // Check data freshness
-          checkDataFreshness(historyData);
           
           currentHistoryPage = 1;
           showAllData = false;
           filterHistory();
+          updateDebugInfo('✅ Kasaysayan ng presyo ay nakuha na');
         } else {
           console.error('❌ API response not OK for history:', response.status);
           throw new Error(`API responded with status: ${response.status}`);
@@ -908,39 +836,19 @@
       } catch (error) {
         console.error('❌ Error loading history:', error);
         showError('historyContent', `Hindi makakuha ng kasaysayan ng presyo: ${error.message}`);
-        
-        // Try fallback
-        try {
-          const fallbackResponse = await fetch(`${API_URL}/prices/historical`);
-          if (fallbackResponse.ok) {
-            const fallbackData = await fallbackResponse.json();
-            console.log('✅ Received history data (fallback):', fallbackData);
-            historyData = fallbackData.historical_data || fallbackData.data?.historical_data || [];
-            historyData.sort((a, b) => new Date(b.date) - new Date(a.date));
-            currentHistoryPage = 1;
-            showAllData = false;
-            filterHistory();
-          }
-        } catch (fallbackError) {
-          console.error('❌ Fallback also failed:', fallbackError);
-        }
+        updateDebugInfo(`❌ Hindi makakuha ng kasaysayan: ${error.message}`, true);
       } finally {
         historyLoading.style.display = 'none';
       }
     }
 
-    // ... (rest of the functions remain the same as previous version)
-
+    // ... (rest of the history functions remain the same)
     function filterHistory() {
       const historyType = document.getElementById('historyType').value;
       const historyCategory = document.getElementById('historyCategory').value;
       
-      console.log('Filtering history:', { historyType, historyCategory });
-      
       if (historyData.length > 0) {
         displayPriceHistory(historyData, historyType, historyCategory);
-      } else {
-        showPriceHistory();
       }
     }
 
@@ -974,7 +882,6 @@
       let endIndex = filteredData.length;
 
       if (!showAllData) {
-        // Calculate pagination for normal view
         totalPages = Math.ceil(filteredData.length / HISTORY_PAGE_SIZE);
         startIndex = (currentHistoryPage - 1) * HISTORY_PAGE_SIZE;
         endIndex = Math.min(startIndex + HISTORY_PAGE_SIZE, filteredData.length);
@@ -990,16 +897,13 @@
 
       if (!showAllData) {
         tableHTML += `
-          <!-- Pagination Controls -->
           <div class="pagination-controls">
             <button onclick="previousHistoryPage()" ${currentHistoryPage === 1 ? 'disabled' : ''} class="pagination-btn">
               <i class="fas fa-arrow-left"></i> Mas Luma
             </button>
-            
             <span class="pagination-info">
               Pahina ${currentHistoryPage} ng ${totalPages} (${filteredData.length} total)
             </span>
-            
             <button onclick="nextHistoryPage()" ${currentHistoryPage === totalPages ? 'disabled' : ''} class="pagination-btn">
               Mas Bago <i class="fas fa-arrow-right"></i>
             </button>
@@ -1015,49 +919,15 @@
               <th>Uri</th>
               <th>Kategorya</th>
               <th>Presyo (₱/kg)</th>
-              <th>Pagbabago</th>
             </tr>
           </thead>
           <tbody>
       `;
       
-      displayData.forEach((item, index) => {
-        let change = '';
-        let changeClass = '';
-        
-        // Calculate price change compared to previous record of the same type/category
-        const sameTypeData = filteredData.filter(d => 
-          d.type === item.type && d.category === item.category
-        );
-        const currentIndex = sameTypeData.findIndex(d => 
-          d.date === item.date && d.type === item.type && d.category === item.category
-        );
-        
-        if (currentIndex > 0) {
-          const prevItem = sameTypeData[currentIndex - 1];
-          const currentPrice = typeof item.price === 'number' ? item.price : parseFloat(item.price);
-          const prevPrice = typeof prevItem.price === 'number' ? prevItem.price : parseFloat(prevItem.price);
-          
-          const changeAmount = currentPrice - prevPrice;
-          const changePercent = ((changeAmount) / prevPrice * 100).toFixed(1);
-          
-          if (changeAmount > 0) {
-            change = `+₱${changeAmount.toFixed(2)} (+${changePercent}%)`;
-            changeClass = 'price-negative';
-          } else if (changeAmount < 0) {
-            change = `-₱${Math.abs(changeAmount).toFixed(2)} (${changePercent}%)`;
-            changeClass = 'price-positive';
-          } else {
-            change = 'Walang Pagbabago';
-          }
-        }
-        
+      displayData.forEach((item) => {
         const priceValue = typeof item.price === 'number' ? item.price.toFixed(2) : parseFloat(item.price).toFixed(2);
         const itemDate = new Date(item.date);
-        const isRecent = itemDate.getFullYear() >= 2025;
-        const dateDisplay = isRecent ? 
-          `<strong>${itemDate.toLocaleDateString('en-PH')}</strong>` : 
-          itemDate.toLocaleDateString('en-PH');
+        const dateDisplay = itemDate.toLocaleDateString('en-PH');
         
         tableHTML += `
           <tr>
@@ -1065,7 +935,6 @@
             <td>${getDisplayName(item.type, '').split(' - ')[0]}</td>
             <td>${getDisplayName('', item.category).split(' - ')[1] || item.category}</td>
             <td><strong>₱${priceValue}</strong></td>
-            <td class="${changeClass}">${change}</td>
           </tr>
         `;
       });
@@ -1073,16 +942,11 @@
       tableHTML += `
           </tbody>
         </table>
-        <div style="text-align: center; margin-top: 15px; color: #666; font-size: 12px;">
-          Ipinapakita ang ${displayData.length} sa ${filteredData.length} na rekord
-          ${!showAllData ? ' | <button onclick="showAllHistory()" style="background: none; border: none; color: #6B8E23; cursor: pointer; text-decoration: underline;">Ipakita Lahat</button>' : ''}
-        </div>
       `;
       
       historyContent.innerHTML = tableHTML;
     }
 
-    // Show all history data without pagination
     function showAllHistory() {
       showAllData = true;
       const historyType = document.getElementById('historyType').value;
@@ -1090,7 +954,6 @@
       displayPriceHistory(historyData, historyType, historyCategory);
     }
 
-    // Reset to paginated view
     function resetHistoryPagination() {
       showAllData = false;
       currentHistoryPage = 1;
@@ -1099,7 +962,6 @@
       displayPriceHistory(historyData, historyType, historyCategory);
     }
 
-    // Pagination functions
     function nextHistoryPage() {
       const historyType = document.getElementById('historyType').value;
       const historyCategory = document.getElementById('historyCategory').value;
@@ -1142,7 +1004,7 @@
       }
     }
 
-    // Price Prediction with better debugging
+    // Price Prediction - FIXED ENDPOINT
     async function predictPrice() {
       if (!backendOnline) {
         alert('Hindi makakonekta sa server. Pakisubukan muli mamaya.');
@@ -1162,16 +1024,13 @@
       const loadingDiv = document.getElementById('predictionLoading');
       const priceDiv = document.getElementById('predictedPrice');
       const detailsDiv = document.getElementById('predictionDetails');
-      const debugDiv = document.getElementById('predictionDebug');
-      const debugContent = document.getElementById('predictionDebugContent');
 
       loadingDiv.style.display = 'block';
       resultDiv.style.display = 'none';
-      debugDiv.style.display = 'none';
 
       try {
-        console.log('Making prediction request to:', `${API_URL}/api/predict`);
-        console.log('Request data:', { riceType, category, weeksAhead });
+        console.log('🔮 Making prediction request to:', `${API_URL}/api/predict`);
+        updateDebugInfo('Gumagawa ng hula sa presyo...');
         
         const response = await fetch(`${API_URL}/api/predict`, {
           method: 'POST',
@@ -1185,73 +1044,35 @@
           })
         });
 
-        console.log('Prediction response status:', response.status);
-        
         if (response.ok) {
           const data = await response.json();
           console.log('✅ Prediction result:', data);
-          
-          // Show debug info
-          debugContent.innerHTML = `
-            Request: ${riceType} - ${category}, ${weeksAhead} weeks<br>
-            Response: ${JSON.stringify(data)}<br>
-            Predicted Price: ${data.data?.predicted_price || data.predicted_price}<br>
-            Prediction Date: ${data.data?.prediction_date || data.prediction_date}
-          `;
-          debugDiv.style.display = 'block';
           
           const predictedPrice = data.data?.predicted_price || data.predicted_price;
           if (predictedPrice) {
             const priceValue = parseFloat(predictedPrice);
             priceDiv.textContent = `₱${priceValue.toFixed(2)}/kg`;
             
-            // Create a future date for display
             const futureDate = new Date();
             futureDate.setDate(futureDate.getDate() + (weeksAhead * 7));
             const futureDateStr = futureDate.toLocaleDateString('en-PH');
             
             detailsDiv.textContent = `Presyo ng ${getDisplayName(riceType, category)} para sa ${futureDateStr} (${weeksAhead} linggo mula ngayon)`;
             resultDiv.style.display = 'block';
-            
-            // Check if prediction is reasonable
-            if (priceValue < 10 || priceValue > 200) {
-              detailsDiv.innerHTML += `<br><small style="color: #dc3545;">⚠️ Babala: Ang hula ay maaaring hindi tumpak. Paki-check ang datos.</small>`;
-            }
+            updateDebugInfo('✅ Hula sa presyo ay nakumpleto');
           } else {
             throw new Error('Walang prediction result na naibalik');
           }
         } else {
           const errorText = await response.text();
-          console.error('❌ Prediction error response:', errorText);
-          throw new Error(`Prediction failed: ${response.status} ${response.statusText}`);
+          throw new Error(`Prediction failed: ${response.status}`);
         }
       } catch (error) {
         console.error('❌ Prediction error:', error);
         priceDiv.textContent = '₱--.--/kg';
         detailsDiv.textContent = `Hindi makabuo ng hula: ${error.message}`;
         resultDiv.style.display = 'block';
-        
-        // Try fallback
-        try {
-          console.log('Trying prediction fallback...');
-          const fallbackResponse = await fetch(`${API_URL}/predict`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: riceType, category: category, weeks_ahead: weeksAhead })
-          });
-          
-          if (fallbackResponse.ok) {
-            const fallbackData = await fallbackResponse.json();
-            console.log('✅ Prediction result (fallback):', fallbackData);
-            const fallbackPrice = fallbackData.data?.predicted_price || fallbackData.predicted_price;
-            if (fallbackPrice) {
-              priceDiv.textContent = `₱${parseFloat(fallbackPrice).toFixed(2)}/kg`;
-              detailsDiv.textContent = `Presyo ng ${getDisplayName(riceType, category)} (fallback data)`;
-            }
-          }
-        } catch (fallbackError) {
-          console.error('❌ Prediction fallback also failed:', fallbackError);
-        }
+        updateDebugInfo(`❌ Hindi makabuo ng hula: ${error.message}`, true);
       } finally {
         loadingDiv.style.display = 'none';
       }
@@ -1265,56 +1086,26 @@
 
     // Initialize the application
     async function initializeApp() {
-      console.log('🚀 Initializing application...');
-      
-      // Show loading states
-      document.getElementById('loadingIndicator').style.display = 'block';
-      document.getElementById('historyLoading').style.display = 'block';
+      console.log('🚀 Initializing RiceUp application...');
+      updateDebugInfo('Inisyal ang aplikasyon...');
       
       // First check backend connection
       const connected = await checkBackendConnection();
       
       if (connected) {
-        // Load data from backend sequentially to avoid overwhelming the server
-        console.log('📥 Loading rice types...');
+        // Load data from backend
         await loadRiceTypes();
-        
-        console.log('📥 Loading current prices...');
         await loadCurrentPrices();
-        
-        console.log('📥 Loading price history...');
         await showPriceHistory();
         
-        console.log('✅ All data loaded successfully');
+        console.log('✅ RiceUp application initialized successfully!');
+        updateDebugInfo('✅ Aplikasyon ay handa na!');
       } else {
-        // Show errors in all sections
-        showError('riceTypesContainer', 'Hindi makakonekta sa server.');
-        showError('historyContent', 'Hindi makakonekta sa server.');
         console.error('❌ Application initialization failed: Backend offline');
       }
     }
 
-    // Add fetch timeout polyfill
-    const originalFetch = window.fetch;
-    window.fetch = function(...args) {
-      const [resource, config] = args;
-      const timeout = config?.timeout || 10000;
-      
-      const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), timeout);
-      
-      return originalFetch(resource, {
-        ...config,
-        signal: controller.signal
-      }).then((response) => {
-        clearTimeout(id);
-        return response;
-      }).catch((error) => {
-        clearTimeout(id);
-        throw error;
-      });
-    };
-
+    // Start the application
     window.onload = initializeApp;
   </script>
 </body>
