@@ -199,6 +199,26 @@
       font-weight: bold;
     }
 
+    .pagination-btn {
+      padding: 8px 15px;
+      background-color: #6B8E23;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.3s;
+    }
+
+    .pagination-btn:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .pagination-btn:hover:not(:disabled) {
+      background-color: #5a7a1c;
+    }
+
     .bottom-nav {
       position: fixed;
       bottom: 0;
@@ -267,6 +287,10 @@
       .history-table td {
         padding: 6px 4px;
       }
+      .pagination-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+      }
     }
   </style>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -277,6 +301,11 @@
       <img src="https://uploads.onecompiler.io/4437779jy/4437qj8jp/PresyoTitle.jpg"
            alt="Presyo ng Bigas" class="header-image">
     </header>
+
+    <!-- Connection Status -->
+    <div id="connectionStatus" style="display: none;" class="error">
+      <p><i class="fas fa-exclamation-triangle"></i> Hindi makakonekta sa server. Pakisubukan muli mamaya.</p>
+    </div>
 
     <!-- Current Prices Section -->
     <div class="price-container">
@@ -369,7 +398,7 @@
         <p>Tinatayang Presyo:</p>
         <div class="predicted-price" id="predictedPrice">-</div>
         <p id="predictionDetails">-</p>
-        <small>Batay sa iyong CSV data gamit ang Linear Regression</small>
+        <small>Batay sa pinakabagong datos mula sa iyong CSV file</small>
       </div>
 
       <div class="loading" id="predictionLoading" style="display: none;">
@@ -401,6 +430,7 @@
   <script>
     // 🔄 UPDATE THIS WITH YOUR BACKEND URL
     const API_URL = 'https://riceup-backend.onrender.com';
+    let backendOnline = false;
 
     // Store available types and current data globally
     let availableRiceTypes = {};
@@ -412,8 +442,45 @@
     let currentHistoryPage = 1;
     const HISTORY_PAGE_SIZE = 10;
 
+    // Check backend connection first
+    async function checkBackendConnection() {
+      try {
+        console.log('Checking backend connection...');
+        const response = await fetch(`${API_URL}/health`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Backend is online:', data);
+          backendOnline = true;
+          document.getElementById('connectionStatus').style.display = 'none';
+          return true;
+        } else {
+          throw new Error(`Backend responded with status: ${response.status}`);
+        }
+      } catch (error) {
+        console.error('Backend connection failed:', error);
+        backendOnline = false;
+        document.getElementById('connectionStatus').style.display = 'block';
+        document.getElementById('connectionStatus').innerHTML = `
+          <p><i class="fas fa-exclamation-triangle"></i> Hindi makakonekta sa server: ${error.message}</p>
+          <p style="font-size: 12px; margin-top: 5px;">Pakisiguro na ang backend server ay tumatakbo sa ${API_URL}</p>
+        `;
+        return false;
+      }
+    }
+
     // Load available rice types from backend
     async function loadRiceTypes() {
+      if (!backendOnline) {
+        console.log('Backend offline, skipping rice types load');
+        return;
+      }
+
       try {
         console.log('Loading rice types from backend...');
         const response = await fetch(`${API_URL}/prices/types`);
@@ -429,8 +496,7 @@
         }
       } catch (error) {
         console.error('Error loading rice types:', error);
-        // Use fallback types immediately
-        populateFallbackTypes();
+        showError('riceTypesContainer', 'Hindi makakuha ng mga uri ng bigas mula sa server.');
       }
     }
 
@@ -464,47 +530,6 @@
       }
       
       console.log(`Added ${totalOptions} options to dropdowns`);
-      
-      // If no options were added, use fallback
-      if (totalOptions === 0) {
-        console.log('No options added, using fallback types');
-        populateFallbackTypes();
-      }
-    }
-
-    function populateFallbackTypes() {
-      console.log('Using fallback rice types');
-      const predictionTypeSelect = document.getElementById('predictionType');
-      const historyCategorySelect = document.getElementById('historyCategory');
-      
-      // Clear existing options first
-      predictionTypeSelect.innerHTML = '<option value="">Pumili ng Uri ng Bigas</option>';
-      historyCategorySelect.innerHTML = '<option value="all">Lahat ng Kategorya</option>';
-      
-      const fallbackOptions = [
-        {value: "KADIWA|Premium", display: "Kadiwa - Premium"},
-        {value: "KADIWA|Well_Milled", display: "Kadiwa - Well Milled"},
-        {value: "KADIWA|Regular_Milled", display: "Kadiwa - Regular Milled"},
-        {value: "KADIWA|P20", display: "Kadiwa - P20"},
-        {value: "LOCAL|Special", display: "Local - Special"},
-        {value: "LOCAL|Premium", display: "Local - Premium"},
-        {value: "LOCAL|Well_Milled", display: "Local - Well Milled"},
-        {value: "LOCAL|Regular_Milled", display: "Local - Regular Milled"},
-        {value: "IMPORTED|Special", display: "Imported - Special"},
-        {value: "IMPORTED|Premium", display: "Imported - Premium"},
-        {value: "IMPORTED|Well_Milled", display: "Imported - Well Milled"},
-        {value: "IMPORTED|Regular_Milled", display: "Imported - Regular Milled"}
-      ];
-      
-      fallbackOptions.forEach(option => {
-        const predictionOption = new Option(option.display, option.value);
-        const historyOption = new Option(option.display, option.value);
-        
-        predictionTypeSelect.add(predictionOption);
-        historyCategorySelect.add(historyOption);
-      });
-      
-      console.log('Fallback types populated');
     }
 
     function getDisplayName(type, category) {
@@ -529,6 +554,11 @@
 
     // Load current prices
     async function loadCurrentPrices() {
+      if (!backendOnline) {
+        showError('riceTypesContainer', 'Hindi makakonekta sa server upang kunin ang mga presyo.');
+        return;
+      }
+
       const loadingIndicator = document.getElementById('loadingIndicator');
       const riceContainer = document.getElementById('riceTypesContainer');
       
@@ -544,6 +574,13 @@
           const data = await response.json();
           console.log('Received current prices:', data);
           currentPricesData = data.current_prices || [];
+          
+          // Check if we have recent data
+          const hasRecentData = checkForRecentData(currentPricesData);
+          if (!hasRecentData) {
+            console.warn('No recent data found in current prices');
+          }
+          
           displayCurrentPrices(currentPricesData, 'all', data.as_of_date);
         } else {
           console.error('API response not OK for current prices:', response.status);
@@ -551,8 +588,25 @@
         }
       } catch (error) {
         console.error('Error loading prices:', error);
-        displayFallbackPrices('all');
+        showError('riceTypesContainer', 'Hindi makakuha ng mga kasalukuyang presyo mula sa server.');
       }
+    }
+
+    // Check if we have data from 2025 or later
+    function checkForRecentData(prices) {
+      const currentYear = new Date().getFullYear();
+      let hasRecentData = false;
+      
+      prices.forEach(price => {
+        if (price.date) {
+          const priceYear = new Date(price.date).getFullYear();
+          if (priceYear >= currentYear) {
+            hasRecentData = true;
+          }
+        }
+      });
+      
+      return hasRecentData;
     }
 
     // Filter current prices
@@ -636,57 +690,13 @@
       }
     }
 
-    function displayFallbackPrices(filterType) {
-      const riceContainer = document.getElementById('riceTypesContainer');
-      const priceBox = document.getElementById('pricePrintBox');
-      const loadingIndicator = document.getElementById('loadingIndicator');
-
-      loadingIndicator.style.display = 'none';
-      
-      const fallbackPrices = [
-        { type: "KADIWA", category: "Premium", price: 43.00 },
-        { type: "KADIWA", category: "Well_Milled", price: 35.00 },
-        { type: "KADIWA", category: "Regular_Milled", price: 33.00 },
-        { type: "KADIWA", category: "P20", price: 20.00 },
-        { type: "LOCAL", category: "Special", price: 48.75 },
-        { type: "LOCAL", category: "Premium", price: 45.25 },
-        { type: "LOCAL", category: "Well_Milled", price: 42.50 },
-        { type: "LOCAL", category: "Regular_Milled", price: 39.75 },
-        { type: "IMPORTED", category: "Special", price: 52.25 },
-        { type: "IMPORTED", category: "Premium", price: 48.75 },
-        { type: "IMPORTED", category: "Well_Milled", price: 45.80 },
-        { type: "IMPORTED", category: "Regular_Milled", price: 43.00 }
-      ];
-
-      let filteredPrices = fallbackPrices;
-      if (filterType !== 'all') {
-        filteredPrices = fallbackPrices.filter(price => price.type === filterType);
-      }
-
-      filteredPrices.forEach(rice => {
-        const displayName = getDisplayName(rice.type, rice.category);
-        const riceElement = document.createElement('div');
-        riceElement.className = 'rice-type';
-        riceElement.innerHTML = `
-          <span class="rice-type-name">${displayName}</span>
-          <span class="rice-type-price">₱${rice.price.toFixed(2)}/kg</span>
-        `;
-        riceContainer.appendChild(riceElement);
-      });
-
-      const averagePrice = filteredPrices.reduce((sum, rice) => sum + rice.price, 0) / filteredPrices.length;
-
-      priceBox.innerHTML = `
-        <p>Average Presyo ng Bigas:</p>
-        <p>₱${averagePrice.toFixed(2)}/kg</p>
-        <p><small>Batay sa ${filteredPrices.length} uri ng bigas</small></p>
-      `;
-      
-      document.getElementById('lastUpdated').textContent = 'Huling na-update: Fallback Data';
-    }
-
     // Price History Functions
     async function showPriceHistory() {
+      if (!backendOnline) {
+        showError('historyContent', 'Hindi makakonekta sa server upang kunin ang kasaysayan ng presyo.');
+        return;
+      }
+
       const historyContent = document.getElementById('historyContent');
       const historyLoading = document.getElementById('historyLoading');
 
@@ -703,8 +713,15 @@
           console.log('Received history data:', data);
           historyData = data.historical_data || [];
           
-          // Sort by date (newest first)
+          // Sort by date (newest first) to show latest data first
           historyData.sort((a, b) => new Date(b.date) - new Date(a.date));
+          
+          // Check if we have recent data
+          const hasRecentData = checkForRecentData(historyData);
+          if (!hasRecentData) {
+            console.warn('No recent data found in history');
+            showWarning('historyContent', 'Paalala: Ang datos na ipinapakita ay mula sa nakaraang taon. Siguraduhin na ang iyong CSV file ay may kasalukuyang datos para sa 2025.');
+          }
           
           currentHistoryPage = 1;
           filterHistory();
@@ -714,7 +731,7 @@
         }
       } catch (error) {
         console.error('Error loading history:', error);
-        displayFallbackHistory();
+        showError('historyContent', 'Hindi makakuha ng kasaysayan ng presyo mula sa server.');
       } finally {
         historyLoading.style.display = 'none';
       }
@@ -770,9 +787,7 @@
         
         <!-- Pagination Controls -->
         <div class="pagination-controls">
-          <button onclick="previousHistoryPage()" ${currentHistoryPage === 1 ? 'disabled' : ''} 
-            style="padding: 8px 15px; background-color: ${currentHistoryPage === 1 ? '#ccc' : '#6B8E23'}; 
-                   color: white; border: none; border-radius: 5px; cursor: ${currentHistoryPage === 1 ? 'not-allowed' : 'pointer'};">
+          <button onclick="previousHistoryPage()" ${currentHistoryPage === 1 ? 'disabled' : ''} class="pagination-btn">
             <i class="fas fa-arrow-left"></i> Mas Luma
           </button>
           
@@ -780,9 +795,7 @@
             Pahina ${currentHistoryPage} ng ${totalPages} (${filteredData.length} total)
           </span>
           
-          <button onclick="nextHistoryPage()" ${currentHistoryPage === totalPages ? 'disabled' : ''}
-            style="padding: 8px 15px; background-color: ${currentHistoryPage === totalPages ? '#ccc' : '#6B8E23'}; 
-                   color: white; border: none; border-radius: 5px; cursor: ${currentHistoryPage === totalPages ? 'not-allowed' : 'pointer'};">
+          <button onclick="nextHistoryPage()" ${currentHistoryPage === totalPages ? 'disabled' : ''} class="pagination-btn">
             Mas Bago <i class="fas fa-arrow-right"></i>
           </button>
         </div>
@@ -832,10 +845,15 @@
         }
         
         const priceValue = typeof item.price === 'number' ? item.price.toFixed(2) : parseFloat(item.price).toFixed(2);
+        const itemDate = new Date(item.date);
+        const isRecent = itemDate.getFullYear() >= 2025;
+        const dateDisplay = isRecent ? 
+          `<strong>${itemDate.toLocaleDateString('en-PH')}</strong>` : 
+          itemDate.toLocaleDateString('en-PH');
         
         tableHTML += `
           <tr>
-            <td>${new Date(item.date).toLocaleDateString('en-PH')}</td>
+            <td>${dateDisplay}</td>
             <td>${getDisplayName(item.type, '').split(' - ')[0]}</td>
             <td>${getDisplayName('', item.category).split(' - ')[1] || item.category}</td>
             <td><strong>₱${priceValue}</strong></td>
@@ -895,13 +913,13 @@
       }
     }
 
-    function displayFallbackHistory() {
-      const historyContent = document.getElementById('historyContent');
-      historyContent.innerHTML = '<div class="error">Hindi makukuha ang kasaysayan ng presyo sa ngayon. Pakisubukan muli mamaya.</div>';
-    }
-
     // Price Prediction
     async function predictPrice() {
+      if (!backendOnline) {
+        alert('Hindi makakonekta sa server. Pakisubukan muli mamaya.');
+        return;
+      }
+
       const selectedValue = document.getElementById('predictionType').value;
       
       if (!selectedValue) {
@@ -921,12 +939,6 @@
 
       try {
         console.log('Making prediction request:', { riceType, category, weeksAhead });
-        
-        // Test if prediction endpoint is available first
-        const healthCheck = await fetch(`${API_URL}/health`);
-        if (!healthCheck.ok) {
-          throw new Error('Backend server is not responding');
-        }
         
         const response = await fetch(`${API_URL}/predict`, {
           method: 'POST',
@@ -948,7 +960,13 @@
           
           if (data.predicted_price) {
             priceDiv.textContent = `₱${parseFloat(data.predicted_price).toFixed(2)}/kg`;
-            detailsDiv.textContent = `Presyo ng ${getDisplayName(riceType, category)} para sa ${data.prediction_date || `${weeksAhead} linggo mula ngayon`}`;
+            
+            // Create a future date for display
+            const futureDate = new Date();
+            futureDate.setDate(futureDate.getDate() + (weeksAhead * 7));
+            const futureDateStr = futureDate.toLocaleDateString('en-PH');
+            
+            detailsDiv.textContent = `Presyo ng ${getDisplayName(riceType, category)} para sa ${futureDateStr}`;
             resultDiv.style.display = 'block';
           } else {
             throw new Error('Walang prediction result na naibalik');
@@ -961,20 +979,50 @@
       } catch (error) {
         console.error('Prediction error:', error);
         priceDiv.textContent = '₱--.--/kg';
-        detailsDiv.textContent = `Hindi makabuo ng hula: ${error.message}. Siguraduhing ang iyong CSV file ay may sapat na datos.`;
+        detailsDiv.textContent = `Hindi makabuo ng hula: ${error.message}`;
         resultDiv.style.display = 'block';
       } finally {
         loadingDiv.style.display = 'none';
       }
     }
 
+    // Utility functions
+    function showError(containerId, message) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = `<div class="error">${message}</div>`;
+    }
+
+    function showWarning(containerId, message) {
+      const container = document.getElementById(containerId);
+      const existingContent = container.innerHTML;
+      container.innerHTML = `
+        <div style="background-color: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #ffc107;">
+          <i class="fas fa-exclamation-triangle"></i> ${message}
+        </div>
+        ${existingContent}
+      `;
+    }
+
     // Initialize the application
-    window.onload = () => {
+    async function initializeApp() {
       console.log('Initializing application...');
-      loadRiceTypes();
-      loadCurrentPrices();
-      showPriceHistory();
-    };
+      
+      // First check backend connection
+      const connected = await checkBackendConnection();
+      
+      if (connected) {
+        // Load data from backend
+        await loadRiceTypes();
+        await loadCurrentPrices();
+        await showPriceHistory();
+      } else {
+        // Show errors in all sections
+        showError('riceTypesContainer', 'Hindi makakonekta sa server.');
+        showError('historyContent', 'Hindi makakonekta sa server.');
+      }
+    }
+
+    window.onload = initializeApp;
   </script>
 </body>
 </html>
