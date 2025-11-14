@@ -493,7 +493,7 @@
     async function checkBackendConnection() {
       try {
         console.log('Checking backend connection...');
-        const response = await fetch(`${API_URL}/health`, {
+        const response = await fetch(`${API_URL}/api/health`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -530,13 +530,13 @@
 
       try {
         console.log('Loading rice types from backend...');
-        const response = await fetch(`${API_URL}/prices/types`);
+        const response = await fetch(`${API_URL}/api/prices/types`);
         
         if (response.ok) {
           const data = await response.json();
           console.log('Received rice types:', data);
-          availableRiceTypes = data;
-          populateDropdowns(data);
+          availableRiceTypes = data.data || data;
+          populateDropdowns(availableRiceTypes);
         } else {
           console.error('API response not OK:', response.status);
           throw new Error('API response not OK');
@@ -615,12 +615,12 @@
 
       try {
         console.log('Fetching current prices...');
-        const response = await fetch(`${API_URL}/prices/current`);
+        const response = await fetch(`${API_URL}/api/prices/current`);
         
         if (response.ok) {
           const data = await response.json();
           console.log('Received current prices:', data);
-          currentPricesData = data.current_prices || [];
+          currentPricesData = data.data?.current_prices || data.current_prices || [];
           
           // Debug: Show what data we received
           showDebugInfo('Current Prices Data', currentPricesData);
@@ -628,7 +628,8 @@
           // Check data freshness
           checkDataFreshness(currentPricesData);
           
-          displayCurrentPrices(currentPricesData, 'all', data.as_of_date);
+          const asOfDate = data.data?.as_of_date || data.as_of_date;
+          displayCurrentPrices(currentPricesData, 'all', asOfDate);
         } else {
           console.error('API response not OK for current prices:', response.status);
           throw new Error('API response not OK');
@@ -802,14 +803,14 @@
       historyContent.innerHTML = '';
 
       try {
-        let url = `${API_URL}/prices/historical`;
+        let url = `${API_URL}/api/prices/historical`;
         console.log('Fetching history from:', url);
         const response = await fetch(url);
         
         if (response.ok) {
           const data = await response.json();
           console.log('Received history data:', data);
-          historyData = data.historical_data || [];
+          historyData = data.data?.historical_data || data.historical_data || [];
           
           // Debug: Show what data we received
           showDebugInfo('History Data', historyData);
@@ -1076,7 +1077,7 @@
       try {
         console.log('Making prediction request:', { riceType, category, weeksAhead });
         
-        const response = await fetch(`${API_URL}/predict`, {
+        const response = await fetch(`${API_URL}/api/predict`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1098,14 +1099,15 @@
           debugContent.innerHTML = `
             Request: ${riceType} - ${category}, ${weeksAhead} weeks<br>
             Response: ${JSON.stringify(data)}<br>
-            Predicted Price: ${data.predicted_price}<br>
-            Prediction Date: ${data.prediction_date}
+            Predicted Price: ${data.data?.predicted_price || data.predicted_price}<br>
+            Prediction Date: ${data.data?.prediction_date || data.prediction_date}
           `;
           debugDiv.style.display = 'block';
           
-          if (data.predicted_price) {
-            const predictedPrice = parseFloat(data.predicted_price);
-            priceDiv.textContent = `₱${predictedPrice.toFixed(2)}/kg`;
+          const predictedPrice = data.data?.predicted_price || data.predicted_price;
+          if (predictedPrice) {
+            const priceValue = parseFloat(predictedPrice);
+            priceDiv.textContent = `₱${priceValue.toFixed(2)}/kg`;
             
             // Create a future date for display
             const futureDate = new Date();
@@ -1116,7 +1118,7 @@
             resultDiv.style.display = 'block';
             
             // Check if prediction is reasonable
-            if (predictedPrice < 10 || predictedPrice > 200) {
+            if (priceValue < 10 || priceValue > 200) {
               detailsDiv.innerHTML += `<br><small style="color: #dc3545;">⚠️ Babala: Ang hula ay maaaring hindi tumpak. Paki-check ang datos.</small>`;
             }
           } else {
