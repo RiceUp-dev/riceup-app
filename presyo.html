@@ -502,23 +502,27 @@
     const HISTORY_PAGE_SIZE = 10;
     let showAllData = false;
 
-    // Enhanced fetch with timeout
+    // Enhanced fetch with timeout and retry
     async function fetchWithTimeout(url, options = {}) {
-      const { timeout = 30000 } = options; // 30 second timeout
+      const { timeout = 15000, retries = 1 } = options; // 15 second timeout, 1 retry
       
-      const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), timeout);
-      
-      try {
-        const response = await fetch(url, {
-          ...options,
-          signal: controller.signal
-        });
-        clearTimeout(id);
-        return response;
-      } catch (error) {
-        clearTimeout(id);
-        throw error;
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeout);
+        
+        try {
+          const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+          });
+          clearTimeout(id);
+          return response;
+        } catch (error) {
+          clearTimeout(id);
+          if (attempt === retries) throw error;
+          console.log(`Retrying ${url}... (attempt ${attempt + 1})`);
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+        }
       }
     }
 
@@ -567,7 +571,7 @@
       }
     }
 
-    // Load available rice types from backend
+    // Load available rice types from backend - WITH HARDCODED FALLBACK
     async function loadRiceTypes() {
       if (!backendOnline) {
         console.log('Backend offline, skipping rice types load');
@@ -578,7 +582,9 @@
         console.log('📥 Loading rice types from:', `${API_URL}/api/prices/types`);
         updateDebugInfo('Kumukuha ng mga uri ng bigas...');
         
-        const response = await fetchWithTimeout(`${API_URL}/api/prices/types`);
+        const response = await fetchWithTimeout(`${API_URL}/api/prices/types`, {
+          timeout: 10000 // 10 second timeout for types
+        });
         
         if (response.ok) {
           const data = await response.json();
@@ -599,8 +605,18 @@
         }
       } catch (error) {
         console.error('❌ Error loading rice types:', error);
-        updateDebugInfo(`❌ Hindi makakuha ng mga uri ng bigas: ${error.message}`, true);
-        throw error;
+        
+        // Use hardcoded types based on your CSV data
+        console.log('🔄 Using hardcoded rice types based on CSV data');
+        availableRiceTypes = {
+          'KADIWA_RICE_FOR_ALL': ['Premium', 'Well_Milled', 'Regular_Milled', 'P20'],
+          'LOCAL': ['Special', 'Premium', 'Well_Milled', 'Regular_Milled'],
+          'IMPORTED': ['Special', 'Premium', 'Well_Milled', 'Regular_Milled'],
+          'NFA_RICE': ['Well_Milled']
+        };
+        
+        populateDropdowns(availableRiceTypes);
+        updateDebugInfo('✅ Gamit ang mga hardcoded na uri ng bigas');
       }
     }
 
@@ -619,6 +635,9 @@
       for (const [riceType, categories] of Object.entries(typesData)) {
         if (Array.isArray(categories)) {
           categories.forEach(category => {
+            // Skip NFA rice for predictions
+            if (riceType === 'NFA_RICE') return;
+            
             const displayName = getDisplayName(riceType, category);
             const value = `${riceType}|${category}`;
             
@@ -676,7 +695,9 @@
         console.log('💰 Fetching current prices from:', `${API_URL}/api/prices/current`);
         updateDebugInfo('Kumukuha ng mga kasalukuyang presyo...');
         
-        const response = await fetchWithTimeout(`${API_URL}/api/prices/current`);
+        const response = await fetchWithTimeout(`${API_URL}/api/prices/current`, {
+          timeout: 20000 // 20 second timeout for current prices
+        });
         
         if (response.ok) {
           const data = await response.json();
@@ -705,7 +726,6 @@
         console.error('❌ Error loading prices:', error);
         showError('riceTypesContainer', `Hindi makakuha ng mga kasalukuyang presyo: ${error.message}`);
         updateDebugInfo(`❌ Hindi makakuha ng mga presyo: ${error.message}`, true);
-        throw error;
       }
     }
 
@@ -813,7 +833,7 @@
       }
     }
 
-    // Price History Functions
+    // Price History Functions - WITH LIMITED DATA
     async function showPriceHistory() {
       if (!backendOnline) {
         showError('historyContent', 'Hindi makakonekta sa server upang kunin ang kasaysayan ng presyo.');
@@ -827,10 +847,13 @@
       historyContent.innerHTML = '';
 
       try {
-        console.log('📊 Fetching history from:', `${API_URL}/api/prices/historical`);
-        updateDebugInfo('Kumukuha ng kasaysayan ng presyo...');
+        console.log('📊 Fetching history from:', `${API_URL}/api/prices/historical?limit=50`);
+        updateDebugInfo('Kumukuha ng kasaysayan ng presyo (limitado)...');
         
-        const response = await fetchWithTimeout(`${API_URL}/api/prices/historical`);
+        // Request only 50 records to avoid timeout
+        const response = await fetchWithTimeout(`${API_URL}/api/prices/historical?limit=50`, {
+          timeout: 15000
+        });
         
         if (response.ok) {
           const data = await response.json();
@@ -858,13 +881,12 @@
         console.error('❌ Error loading history:', error);
         showError('historyContent', `Hindi makakuha ng kasaysayan ng presyo: ${error.message}`);
         updateDebugInfo(`❌ Hindi makakuha ng kasaysayan: ${error.message}`, true);
-        throw error;
       } finally {
         historyLoading.style.display = 'none';
       }
     }
 
-    // ... (rest of the history functions remain the same as before)
+    // ... (rest of the history functions remain the same)
 
     function filterHistory() {
       const historyType = document.getElementById('historyType').value;
@@ -1064,7 +1086,8 @@
             type: riceType,
             category: category,
             weeks_ahead: weeksAhead
-          })
+          }),
+          timeout: 20000
         });
 
         if (response.ok) {
@@ -1117,10 +1140,14 @@
         const connected = await checkBackendConnection();
         
         if (connected) {
-          // Load data from backend sequentially
+          // Load rice types FIRST (this populates the dropdowns)
           await loadRiceTypes();
-          await loadCurrentPrices();
-          await showPriceHistory();
+          
+          // Then load other data in parallel
+          await Promise.all([
+            loadCurrentPrices(),
+            showPriceHistory()
+          ]);
           
           console.log('✅ RiceUp application initialized successfully!');
           updateDebugInfo('✅ Aplikasyon ay handa na!');
