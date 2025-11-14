@@ -382,6 +382,15 @@
           <!-- Options will be loaded dynamically -->
         </select>
       </div>
+
+      <div style="text-align: center; margin-bottom: 15px;">
+        <button onclick="showAllHistory()" class="pagination-btn" style="margin: 0 5px;">
+          <i class="fas fa-list"></i> Ipakita Lahat
+        </button>
+        <button onclick="resetHistoryPagination()" class="pagination-btn" style="margin: 0 5px;">
+          <i class="fas fa-sync"></i> Balik sa Pinakabago
+        </button>
+      </div>
       
       <div class="history-content" id="historyContent">
         <div class="loading" id="historyLoading">
@@ -407,6 +416,8 @@
           <option value="2">2 Linggo Mula Ngayon</option>
           <option value="4">1 Buwan Mula Ngayon</option>
           <option value="8">2 Buwan Mula Ngayon</option>
+          <option value="12">3 Buwan Mula Ngayon</option>
+          <option value="24">6 Buwan Mula Ngayon</option>
         </select>
       </div>
       
@@ -423,6 +434,11 @@
       ">
         <i class="fas fa-calculator"></i> Hulaan ang Presyo
       </button>
+
+      <div id="predictionDebug" style="display: none; background: #f0f8ff; padding: 10px; border-radius: 5px; margin: 10px 0; font-size: 12px;">
+        <strong>Prediction Debug:</strong>
+        <div id="predictionDebugContent"></div>
+      </div>
       
       <div class="prediction-result" id="predictionResult" style="display: none;">
         <p>Tinatayang Presyo:</p>
@@ -471,6 +487,7 @@
     let historyData = [];
     let currentHistoryPage = 1;
     const HISTORY_PAGE_SIZE = 10;
+    let showAllData = false;
 
     // Check backend connection first
     async function checkBackendConnection() {
@@ -804,6 +821,7 @@
           checkDataFreshness(historyData);
           
           currentHistoryPage = 1;
+          showAllData = false;
           filterHistory();
         } else {
           console.error('API response not OK for history:', response.status);
@@ -854,32 +872,46 @@
         return;
       }
 
-      // Calculate pagination
-      const totalPages = Math.ceil(filteredData.length / HISTORY_PAGE_SIZE);
-      const startIndex = (currentHistoryPage - 1) * HISTORY_PAGE_SIZE;
-      const endIndex = Math.min(startIndex + HISTORY_PAGE_SIZE, filteredData.length);
-      const pageData = filteredData.slice(startIndex, endIndex);
+      let displayData = filteredData;
+      let totalPages = 1;
+      let startIndex = 0;
+      let endIndex = filteredData.length;
+
+      if (!showAllData) {
+        // Calculate pagination for normal view
+        totalPages = Math.ceil(filteredData.length / HISTORY_PAGE_SIZE);
+        startIndex = (currentHistoryPage - 1) * HISTORY_PAGE_SIZE;
+        endIndex = Math.min(startIndex + HISTORY_PAGE_SIZE, filteredData.length);
+        displayData = filteredData.slice(startIndex, endIndex);
+      }
 
       let tableHTML = `
         <h4 style="text-align: center; margin-bottom: 15px; color: #5B3A29;">
           Kasaysayan ng Presyo - ${getHistoryTitle(historyType, historyCategory)}
+          ${showAllData ? '<br><small>(Ipinapakita ang LAHAT ng datos)</small>' : ''}
         </h4>
-        
-        <!-- Pagination Controls -->
-        <div class="pagination-controls">
-          <button onclick="previousHistoryPage()" ${currentHistoryPage === 1 ? 'disabled' : ''} class="pagination-btn">
-            <i class="fas fa-arrow-left"></i> Mas Luma
-          </button>
-          
-          <span class="pagination-info">
-            Pahina ${currentHistoryPage} ng ${totalPages} (${filteredData.length} total)
-          </span>
-          
-          <button onclick="nextHistoryPage()" ${currentHistoryPage === totalPages ? 'disabled' : ''} class="pagination-btn">
-            Mas Bago <i class="fas fa-arrow-right"></i>
-          </button>
-        </div>
-        
+      `;
+
+      if (!showAllData) {
+        tableHTML += `
+          <!-- Pagination Controls -->
+          <div class="pagination-controls">
+            <button onclick="previousHistoryPage()" ${currentHistoryPage === 1 ? 'disabled' : ''} class="pagination-btn">
+              <i class="fas fa-arrow-left"></i> Mas Luma
+            </button>
+            
+            <span class="pagination-info">
+              Pahina ${currentHistoryPage} ng ${totalPages} (${filteredData.length} total)
+            </span>
+            
+            <button onclick="nextHistoryPage()" ${currentHistoryPage === totalPages ? 'disabled' : ''} class="pagination-btn">
+              Mas Bago <i class="fas fa-arrow-right"></i>
+            </button>
+          </div>
+        `;
+      }
+
+      tableHTML += `
         <table class="history-table">
           <thead>
             <tr>
@@ -893,7 +925,7 @@
           <tbody>
       `;
       
-      pageData.forEach((item, index) => {
+      displayData.forEach((item, index) => {
         let change = '';
         let changeClass = '';
         
@@ -945,9 +977,30 @@
       tableHTML += `
           </tbody>
         </table>
+        <div style="text-align: center; margin-top: 15px; color: #666; font-size: 12px;">
+          Ipinapakita ang ${displayData.length} sa ${filteredData.length} na rekord
+          ${!showAllData ? ' | <button onclick="showAllHistory()" style="background: none; border: none; color: #6B8E23; cursor: pointer; text-decoration: underline;">Ipakita Lahat</button>' : ''}
+        </div>
       `;
       
       historyContent.innerHTML = tableHTML;
+    }
+
+    // Show all history data without pagination
+    function showAllHistory() {
+      showAllData = true;
+      const historyType = document.getElementById('historyType').value;
+      const historyCategory = document.getElementById('historyCategory').value;
+      displayPriceHistory(historyData, historyType, historyCategory);
+    }
+
+    // Reset to paginated view
+    function resetHistoryPagination() {
+      showAllData = false;
+      currentHistoryPage = 1;
+      const historyType = document.getElementById('historyType').value;
+      const historyCategory = document.getElementById('historyCategory').value;
+      displayPriceHistory(historyData, historyType, historyCategory);
     }
 
     // Pagination functions
@@ -993,7 +1046,7 @@
       }
     }
 
-    // Price Prediction
+    // Price Prediction with better debugging
     async function predictPrice() {
       if (!backendOnline) {
         alert('Hindi makakonekta sa server. Pakisubukan muli mamaya.');
@@ -1013,9 +1066,12 @@
       const loadingDiv = document.getElementById('predictionLoading');
       const priceDiv = document.getElementById('predictedPrice');
       const detailsDiv = document.getElementById('predictionDetails');
+      const debugDiv = document.getElementById('predictionDebug');
+      const debugContent = document.getElementById('predictionDebugContent');
 
       loadingDiv.style.display = 'block';
       resultDiv.style.display = 'none';
+      debugDiv.style.display = 'none';
 
       try {
         console.log('Making prediction request:', { riceType, category, weeksAhead });
@@ -1038,16 +1094,31 @@
           const data = await response.json();
           console.log('Prediction result:', data);
           
+          // Show debug info
+          debugContent.innerHTML = `
+            Request: ${riceType} - ${category}, ${weeksAhead} weeks<br>
+            Response: ${JSON.stringify(data)}<br>
+            Predicted Price: ${data.predicted_price}<br>
+            Prediction Date: ${data.prediction_date}
+          `;
+          debugDiv.style.display = 'block';
+          
           if (data.predicted_price) {
-            priceDiv.textContent = `₱${parseFloat(data.predicted_price).toFixed(2)}/kg`;
+            const predictedPrice = parseFloat(data.predicted_price);
+            priceDiv.textContent = `₱${predictedPrice.toFixed(2)}/kg`;
             
             // Create a future date for display
             const futureDate = new Date();
             futureDate.setDate(futureDate.getDate() + (weeksAhead * 7));
             const futureDateStr = futureDate.toLocaleDateString('en-PH');
             
-            detailsDiv.textContent = `Presyo ng ${getDisplayName(riceType, category)} para sa ${futureDateStr}`;
+            detailsDiv.textContent = `Presyo ng ${getDisplayName(riceType, category)} para sa ${futureDateStr} (${weeksAhead} linggo mula ngayon)`;
             resultDiv.style.display = 'block';
+            
+            // Check if prediction is reasonable
+            if (predictedPrice < 10 || predictedPrice > 200) {
+              detailsDiv.innerHTML += `<br><small style="color: #dc3545;">⚠️ Babala: Ang hula ay maaaring hindi tumpak. Paki-check ang datos.</small>`;
+            }
           } else {
             throw new Error('Walang prediction result na naibalik');
           }
