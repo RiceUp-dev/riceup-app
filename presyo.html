@@ -896,60 +896,66 @@
       }
     }
 
-    // Price History Functions - FIXED VERSION
-    async function showPriceHistory() {
-      if (!backendOnline) {
-        showError('historyContent', 'Hindi makakonekta sa server upang kunin ang kasaysayan ng presyo.');
-        return;
-      }
+// Price History Functions - IMPROVED VERSION
+async function showPriceHistory() {
+  if (!backendOnline) {
+    showError('historyContent', 'Hindi makakonekta sa server upang kunin ang kasaysayan ng presyo.');
+    return;
+  }
 
-      const historyContent = document.getElementById('historyContent');
-      const historyLoading = document.getElementById('historyLoading');
+  const historyContent = document.getElementById('historyContent');
+  const historyLoading = document.getElementById('historyLoading');
 
-      historyLoading.style.display = 'block';
-      historyContent.innerHTML = '';
+  historyLoading.style.display = 'block';
+  historyContent.innerHTML = '';
 
-      try {
-        console.log('📊 Fetching history from:', `${API_URL}/api/prices/historical?limit=100`);
-        updateDebugInfo('Kumukuha ng kasaysayan ng presyo...');
+  try {
+    console.log('📊 Fetching history from:', `${API_URL}/api/prices/historical?limit=200`);
+    updateDebugInfo('Kumukuha ng kasaysayan ng presyo...');
+    
+    // Request 200 records to get more historical data
+    const response = await fetchWithTimeout(`${API_URL}/api/prices/historical?limit=200`, {
+      timeout: 20000
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Received history data response:', data);
+      
+      // Handle response format
+      if (data.success && data.data) {
+        historyData = data.data.historical_data || [];
+        console.log(`📊 Loaded ${historyData.length} history records`);
         
-        // Request 100 records
-        const response = await fetchWithTimeout(`${API_URL}/api/prices/historical?limit=100`, {
-          timeout: 15000
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('✅ Received history data response:', data);
-          
-          // Handle response format
-          if (data.success && data.data) {
-            historyData = data.data.historical_data || [];
-            console.log(`📊 Loaded ${historyData.length} history records`);
-          } else {
-            historyData = data.historical_data || data.data || [];
-          }
-          
-          // Sort by date (newest first) if not already sorted
-          historyData.sort((a, b) => new Date(b.date) - new Date(a.date));
-          
-          currentHistoryPage = 1;
-          showAllData = false;
-          filterHistory();
-          updateDebugInfo(`✅ Kasaysayan ng presyo ay nakuha na (${historyData.length} records)`);
-        } else {
-          console.error('❌ API response not OK for history:', response.status);
-          throw new Error(`API responded with status: ${response.status}`);
+        // Log date range to verify we have older data
+        if (historyData.length > 0) {
+          const oldestDate = new Date(Math.min(...historyData.map(item => new Date(item.date))));
+          const newestDate = new Date(Math.max(...historyData.map(item => new Date(item.date))));
+          console.log(`📅 History date range: ${oldestDate.toLocaleDateString()} to ${newestDate.toLocaleDateString()}`);
         }
-      } catch (error) {
-        console.error('❌ Error loading history:', error);
-        showError('historyContent', `Hindi makakuha ng kasaysayan ng presyo: ${error.message}`);
-        updateDebugInfo(`❌ Hindi makakuha ng kasaysayan: ${error.message}`, true);
-      } finally {
-        historyLoading.style.display = 'none';
+      } else {
+        historyData = data.historical_data || data.data || [];
       }
+      
+      // Sort by date (newest first) if not already sorted
+      historyData.sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      currentHistoryPage = 1;
+      showAllData = false;
+      filterHistory();
+      updateDebugInfo(`✅ Kasaysayan ng presyo ay nakuha na (${historyData.length} records)`);
+    } else {
+      console.error('❌ API response not OK for history:', response.status);
+      throw new Error(`API responded with status: ${response.status}`);
     }
-
+  } catch (error) {
+    console.error('❌ Error loading history:', error);
+    showError('historyContent', `Hindi makakuha ng kasaysayan ng presyo: ${error.message}`);
+    updateDebugInfo(`❌ Hindi makakuha ng kasaysayan: ${error.message}`, true);
+  } finally {
+    historyLoading.style.display = 'none';
+  }
+}
     function filterHistory() {
       const historyType = document.getElementById('historyType').value;
       const historyCategory = document.getElementById('historyCategory').value;
@@ -1269,3 +1275,4 @@
   </script>
 </body>
 </html>
+
