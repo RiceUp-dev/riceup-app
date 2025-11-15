@@ -272,6 +272,35 @@
       margin-top: 10px;
     }
 
+    .time-navigation {
+      display: flex;
+      gap: 10px;
+      margin: 15px 0;
+      justify-content: center;
+    }
+
+    .time-nav-btn {
+      padding: 10px 20px;
+      background-color: #5B3A29;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.3s;
+      flex: 1;
+      max-width: 150px;
+    }
+
+    .time-nav-btn:hover {
+      background-color: #6B8E23;
+    }
+
+    .time-nav-btn:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
     .bottom-nav {
       position: fixed;
       bottom: 0;
@@ -344,6 +373,14 @@
         padding: 6px 12px;
         font-size: 12px;
       }
+      .time-navigation {
+        flex-direction: column;
+        align-items: center;
+      }
+      .time-nav-btn {
+        max-width: 100%;
+        width: 100%;
+      }
     }
   </style>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -409,7 +446,7 @@
       </h3>
       
       <div class="history-controls">
-        <select id="historyType" onchange="filterHistory()">
+        <select id="historyType" onchange="updateCategoryOptions()">
           <option value="all">Lahat ng Uri</option>
           <option value="KADIWA_RICE_FOR_ALL">Kadiwa</option>
           <option value="LOCAL">Local</option>
@@ -420,6 +457,15 @@
           <option value="all">Lahat ng Kategorya</option>
           <!-- Options will be loaded dynamically -->
         </select>
+      </div>
+
+      <div class="time-navigation">
+        <button onclick="showNewerData()" class="time-nav-btn" id="newerBtn" disabled>
+          <i class="fas fa-arrow-left"></i> Mas Bago
+        </button>
+        <button onclick="showOlderData()" class="time-nav-btn" id="olderBtn">
+          <i class="fas fa-arrow-right"></i> Mas Luma
+        </button>
       </div>
 
       <div style="text-align: center; margin-bottom: 15px;">
@@ -529,6 +575,11 @@
     let totalHistoryCount = 0;
     const INITIAL_LOAD_SIZE = 100;
     const PROGRESSIVE_LOAD_SIZE = 500;
+
+    // Time Navigation Variables
+    let currentTimeRange = 'latest'; // 'latest', 'older', 'newer'
+    let timeNavigationStack = [];
+    let currentStackIndex = -1;
 
     // Enhanced fetch with timeout and retry
     async function fetchWithTimeout(url, options = {}) {
@@ -707,16 +758,61 @@
             const predictionOption = new Option(displayName, value);
             predictionTypeSelect.add(predictionOption);
             
-            // Add to history category dropdown
-            const historyOption = new Option(displayName, value);
-            historyCategorySelect.add(historyOption);
-            
             totalOptions++;
           });
         }
       }
       
+      // Update category options based on initial type selection
+      updateCategoryOptions();
+      
       console.log(`✅ Added ${totalOptions} options to dropdowns`);
+    }
+
+    // FIXED: Update category options based on selected type
+    function updateCategoryOptions() {
+      const historyTypeSelect = document.getElementById('historyType');
+      const historyCategorySelect = document.getElementById('historyCategory');
+      const selectedType = historyTypeSelect.value;
+      
+      console.log('🔄 Updating category options for type:', selectedType);
+      
+      // Clear existing category options except "all"
+      historyCategorySelect.innerHTML = '<option value="all">Lahat ng Kategorya</option>';
+      
+      if (selectedType === 'all') {
+        // Show all categories from all types
+        const allCategories = new Set();
+        for (const [riceType, categories] of Object.entries(availableRiceTypes)) {
+          if (Array.isArray(categories)) {
+            categories.forEach(category => {
+              if (riceType !== 'NFA_RICE') {
+                const displayName = getDisplayName(riceType, category);
+                const value = `${riceType}|${category}`;
+                allCategories.add({displayName, value});
+              }
+            });
+          }
+        }
+        
+        allCategories.forEach(item => {
+          const option = new Option(item.displayName, item.value);
+          historyCategorySelect.add(option);
+        });
+      } else if (availableRiceTypes[selectedType]) {
+        // Show categories only for selected type
+        availableRiceTypes[selectedType].forEach(category => {
+          const displayName = getDisplayName(selectedType, category);
+          const value = `${selectedType}|${category}`;
+          const option = new Option(displayName, value);
+          historyCategorySelect.add(option);
+        });
+      }
+      
+      console.log(`✅ Updated category options: ${historyCategorySelect.options.length} options`);
+      
+      // Trigger filter after updating categories
+      filterHistory();
     }
 
     function getDisplayName(type, category) {
@@ -944,6 +1040,7 @@
         allHistoryData = []; // Reset data
         loadedHistoryCount = 0;
         totalHistoryCount = 0;
+        resetTimeNavigation();
       } else {
         // For progressive load, show a small loading indicator
         const loadingRow = document.createElement('div');
@@ -985,6 +1082,9 @@
             loadedHistoryCount = newData.length;
             hasMore = data.data?.has_more || (totalHistoryCount > loadedHistoryCount);
             allHistoryData = newData;
+            
+            // Save to time navigation stack
+            saveToTimeNavigationStack(newData);
           } else {
             newData = data.data || data.data?.historical_data || [];
             loadedHistoryCount += newData.length;
@@ -1041,7 +1141,67 @@
       allHistoryData = [];
       loadedHistoryCount = 0;
       totalHistoryCount = 0;
+      resetTimeNavigation();
       showPriceHistory('initial');
+    }
+
+    // TIME NAVIGATION FUNCTIONS
+    function resetTimeNavigation() {
+      timeNavigationStack = [];
+      currentStackIndex = -1;
+      updateTimeNavigationButtons();
+    }
+
+    function saveToTimeNavigationStack(data) {
+      if (data.length > 0) {
+        const currentState = {
+          data: [...data],
+          type: document.getElementById('historyType').value,
+          category: document.getElementById('historyCategory').value,
+          timestamp: new Date().getTime()
+        };
+        
+        // Only save if different from last state
+        if (timeNavigationStack.length === 0 || 
+            JSON.stringify(timeNavigationStack[timeNavigationStack.length - 1]) !== JSON.stringify(currentState)) {
+          timeNavigationStack.push(currentState);
+          currentStackIndex = timeNavigationStack.length - 1;
+        }
+        
+        updateTimeNavigationButtons();
+      }
+    }
+
+    function showNewerData() {
+      if (currentStackIndex > 0) {
+        currentStackIndex--;
+        const state = timeNavigationStack[currentStackIndex];
+        document.getElementById('historyType').value = state.type;
+        document.getElementById('historyCategory').value = state.category;
+        displayPriceHistory(state.data, state.type, state.category, false);
+        updateTimeNavigationButtons();
+      }
+    }
+
+    function showOlderData() {
+      if (currentStackIndex < timeNavigationStack.length - 1) {
+        currentStackIndex++;
+        const state = timeNavigationStack[currentStackIndex];
+        document.getElementById('historyType').value = state.type;
+        document.getElementById('historyCategory').value = state.category;
+        displayPriceHistory(state.data, state.type, state.category, false);
+        updateTimeNavigationButtons();
+      }
+    }
+
+    function updateTimeNavigationButtons() {
+      const newerBtn = document.getElementById('newerBtn');
+      const olderBtn = document.getElementById('olderBtn');
+      
+      newerBtn.disabled = currentStackIndex <= 0;
+      olderBtn.disabled = currentStackIndex >= timeNavigationStack.length - 1;
+      
+      console.log(`🕒 Time navigation: ${currentStackIndex + 1}/${timeNavigationStack.length}`);
     }
 
     // Display price history with progressive loading
@@ -1067,23 +1227,11 @@
           Kasaysayan ng Presyo - ${getHistoryTitle(historyType, historyCategory)}
         </h4>
         <div style="text-align: center; margin-bottom: 10px; color: #666; font-size: 14px;">
-          Na-load na: <strong>${loadedHistoryCount}</strong> ng <strong>${totalHistoryCount}</strong> rekord | 
+          Na-load na: <strong>${data.length}</strong> rekord | 
           Petsa mula: <strong>${new Date(Math.min(...data.map(item => new Date(item.date)))).toLocaleDateString('en-PH')}</strong> 
           hanggang: <strong>${new Date(Math.max(...data.map(item => new Date(item.date)))).toLocaleDateString('en-PH')}</strong>
         </div>
       `;
-
-      // Add progress bar
-      if (totalHistoryCount > 0) {
-        const progressPercent = Math.min(100, (loadedHistoryCount / totalHistoryCount) * 100);
-        tableHTML += `
-          <div style="background: #f0f0f0; border-radius: 10px; height: 20px; margin: 10px 0; overflow: hidden;">
-            <div style="background: #6B8E23; height: 100%; width: ${progressPercent}%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;">
-              ${Math.round(progressPercent)}%
-            </div>
-          </div>
-        `;
-      }
 
       tableHTML += `
         <div style="max-height: 500px; overflow-y: auto;">
@@ -1125,17 +1273,8 @@
         tableHTML += `
           <div class="load-more-section">
             <button onclick="loadMoreHistory()" class="pagination-btn" style="padding: 10px 20px;">
-              <i class="fas fa-arrow-down"></i> Mag-load ng Karagdagang Datos (${totalHistoryCount - loadedHistoryCount} natitira)
+              <i class="fas fa-arrow-down"></i> Mag-load ng Karagdagang Datos
             </button>
-            <p style="font-size: 12px; color: #666; margin-top: 5px;">
-              Auto-load sa background habang ginagamit mo ang app
-            </p>
-          </div>
-        `;
-      } else if (totalHistoryCount > 0) {
-        tableHTML += `
-          <div style="text-align: center; margin-top: 15px; padding: 10px; background: #e8f5e8; border-radius: 5px;">
-            <i class="fas fa-check-circle"></i> Lahat ng ${totalHistoryCount} rekord ay na-load na
           </div>
         `;
       }
@@ -1161,6 +1300,8 @@
     function filterHistory() {
       const historyType = document.getElementById('historyType').value;
       const historyCategory = document.getElementById('historyCategory').value;
+      
+      console.log('🔍 Filtering history by:', historyType, historyCategory);
       
       // Reset and reload with new filters
       showPriceHistory('initial');
