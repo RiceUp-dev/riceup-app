@@ -597,7 +597,7 @@
     // Load available rice types from backend - WITH HARDCODED FALLBACK
     async function loadRiceTypes() {
       if (!backendOnline) {
-        console.log('Backend offline, skipping rice types load');
+        console.log('Backend offline, using hardcoded rice types');
         // Use hardcoded types based on your CSV data
         availableRiceTypes = {
           'KADIWA_RICE_FOR_ALL': ['Premium', 'Well_Milled', 'Regular_Milled', 'P20'],
@@ -616,12 +616,12 @@
         updateDebugInfo('Kumukuha ng mga uri ng bigas...');
         
         const response = await fetchWithTimeout(`${API_URL}/api/prices/types`, {
-          timeout: 10000 // 10 second timeout for types
+          timeout: 10000
         });
         
         if (response.ok) {
           const data = await response.json();
-          console.log('✅ Received rice types:', data);
+          console.log('✅ Received rice types response:', data);
           
           // Handle the response format from your backend
           if (data.success && data.data) {
@@ -630,10 +630,11 @@
             availableRiceTypes = data;
           }
           
+          console.log('📋 Available rice types:', availableRiceTypes);
           populateDropdowns(availableRiceTypes);
-          updateDebugInfo('✅ Mga uri ng bigas ay nakuha na');
+          updateDebugInfo(`✅ Mga uri ng bigas ay nakuha na (${Object.keys(availableRiceTypes).length} types)`);
         } else {
-          console.error('❌ API response not OK:', response.status);
+          console.error('❌ API response not OK for types:', response.status);
           throw new Error(`API responded with status: ${response.status}`);
         }
       } catch (error) {
@@ -709,11 +710,10 @@
       return `${typeNames[type] || type} - ${categoryNames[category] || category}`;
     }
 
-    // Load current prices
+    // Load current prices - FIXED VERSION
     async function loadCurrentPrices() {
       if (!backendOnline) {
         showError('riceTypesContainer', 'Hindi makakonekta sa server upang kunin ang mga presyo.');
-        // Show sample data when backend is offline
         showSampleData();
         return;
       }
@@ -735,27 +735,25 @@
         
         if (response.ok) {
           const data = await response.json();
-          console.log('✅ Received current prices:', data);
+          console.log('✅ Received current prices response:', data);
+          
+          // Store the data globally
+          currentPricesData = [];
           
           // Handle different response formats
-          let prices = [];
-          let asOfDate = null;
-          
           if (data.success && data.data) {
-            prices = data.data.current_prices || [];
-            asOfDate = data.data.as_of_date;
-          } else if (data.current_prices) {
-            prices = data.current_prices;
-            asOfDate = data.as_of_date;
+            currentPricesData = data.data.current_prices || [];
+            console.log('📊 Current prices data:', currentPricesData);
+            
+            // Check data freshness
+            checkDataFreshness(currentPricesData);
+            
+            const asOfDate = data.data.as_of_date;
+            displayCurrentPrices(currentPricesData, 'all', asOfDate);
+            updateDebugInfo(`✅ Mga kasalukuyang presyo ay nakuha na (${currentPricesData.length} records)`);
           } else {
-            prices = data.data || [];
+            throw new Error('Invalid response format from server');
           }
-          
-          // Check data freshness
-          checkDataFreshness(prices);
-          
-          displayCurrentPrices(prices, 'all', asOfDate);
-          updateDebugInfo('✅ Mga kasalukuyang presyo ay nakuha na');
         } else {
           const errorData = await response.json();
           throw new Error(errorData.error || `API responded with status: ${response.status}`);
@@ -865,15 +863,17 @@
       });
 
       // Calculate average price
-      const averagePrice = filteredPrices.reduce((sum, price) => {
-        const priceValue = typeof price.price === 'number' ? price.price : parseFloat(price.price);
-        return sum + priceValue;
-      }, 0) / filteredPrices.length;
+      const validPrices = filteredPrices.filter(price => price.price > 0);
+      const averagePrice = validPrices.length > 0 ? 
+        validPrices.reduce((sum, price) => {
+          const priceValue = typeof price.price === 'number' ? price.price : parseFloat(price.price);
+          return sum + priceValue;
+        }, 0) / validPrices.length : 0;
       
       priceBox.innerHTML = `
         <p>Average Presyo:</p>
         <p>₱${averagePrice.toFixed(2)}/kg</p>
-        <p><small>Batay sa ${filteredPrices.length} uri ng bigas</small></p>
+        <p><small>Batay sa ${validPrices.length} uri ng bigas</small></p>
       `;
 
       if (asOfDate) {
@@ -896,7 +896,7 @@
       }
     }
 
-    // Price History Functions - WITH LIMITED DATA
+    // Price History Functions - FIXED VERSION
     async function showPriceHistory() {
       if (!backendOnline) {
         showError('historyContent', 'Hindi makakonekta sa server upang kunin ang kasaysayan ng presyo.');
@@ -910,32 +910,33 @@
       historyContent.innerHTML = '';
 
       try {
-        console.log('📊 Fetching history from:', `${API_URL}/api/prices/historical?limit=50`);
-        updateDebugInfo('Kumukuha ng kasaysayan ng presyo (limitado)...');
+        console.log('📊 Fetching history from:', `${API_URL}/api/prices/historical?limit=100`);
+        updateDebugInfo('Kumukuha ng kasaysayan ng presyo...');
         
-        // Request only 50 records to avoid timeout
-        const response = await fetchWithTimeout(`${API_URL}/api/prices/historical?limit=50`, {
+        // Request 100 records
+        const response = await fetchWithTimeout(`${API_URL}/api/prices/historical?limit=100`, {
           timeout: 15000
         });
         
         if (response.ok) {
           const data = await response.json();
-          console.log('✅ Received history data:', data);
+          console.log('✅ Received history data response:', data);
           
           // Handle response format
           if (data.success && data.data) {
             historyData = data.data.historical_data || [];
+            console.log(`📊 Loaded ${historyData.length} history records`);
           } else {
             historyData = data.historical_data || data.data || [];
           }
           
-          // Sort by date (newest first)
+          // Sort by date (newest first) if not already sorted
           historyData.sort((a, b) => new Date(b.date) - new Date(a.date));
           
           currentHistoryPage = 1;
           showAllData = false;
           filterHistory();
-          updateDebugInfo('✅ Kasaysayan ng presyo ay nakuha na');
+          updateDebugInfo(`✅ Kasaysayan ng presyo ay nakuha na (${historyData.length} records)`);
         } else {
           console.error('❌ API response not OK for history:', response.status);
           throw new Error(`API responded with status: ${response.status}`);
@@ -1191,22 +1192,37 @@
       container.innerHTML = `<div class="error">${message}</div>`;
     }
 
-    // Test API endpoints manually
-    async function testAllEndpoints() {
+    // DEBUG FUNCTION - Test all API endpoints
+    async function debugAllEndpoints() {
+      console.log('🔍 Testing all API endpoints...');
+      
       const endpoints = [
-        '/api/health',
-        '/api/prices/types', 
-        '/api/prices/current',
-        '/api/prices/historical?limit=5'
+        { url: '/api/health', method: 'GET' },
+        { url: '/api/prices/types', method: 'GET' },
+        { url: '/api/prices/current', method: 'GET' },
+        { url: '/api/prices/historical?limit=5', method: 'GET' }
       ];
       
       for (const endpoint of endpoints) {
         try {
-          const response = await fetch(`${API_URL}${endpoint}`);
+          console.log(`\n📡 Testing: ${endpoint.method} ${endpoint.url}`);
+          const response = await fetch(`${API_URL}${endpoint.url}`);
           const data = await response.json();
-          console.log(`✅ ${endpoint}:`, data);
+          console.log(`✅ SUCCESS:`, data);
+          
+          if (endpoint.url === '/api/prices/current') {
+            console.log(`📊 Current prices count:`, data.data?.current_prices?.length || 0);
+            console.log(`📊 Current prices data:`, data.data?.current_prices);
+          }
+          if (endpoint.url === '/api/prices/historical') {
+            console.log(`📊 Historical data count:`, data.data?.historical_data?.length || 0);
+            console.log(`📊 Historical data sample:`, data.data?.historical_data?.slice(0, 3));
+          }
+          if (endpoint.url === '/api/prices/types') {
+            console.log(`📋 Available types:`, data.data);
+          }
         } catch (error) {
-          console.error(`❌ ${endpoint}:`, error);
+          console.error(`❌ FAILED: ${endpoint.url}`, error);
         }
       }
     }
