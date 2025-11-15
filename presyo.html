@@ -892,6 +892,83 @@
       }
     }
 
+    // FIXED: Display current prices without duplicates
+    function displayCurrentPrices(prices, filterType, asOfDate) {
+      const riceContainer = document.getElementById('riceTypesContainer');
+      const priceBox = document.getElementById('pricePrintBox');
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      const lastUpdated = document.getElementById('lastUpdated');
+
+      loadingIndicator.style.display = 'none';
+      riceContainer.innerHTML = '';
+
+      if (!prices || prices.length === 0) {
+        riceContainer.innerHTML = '<div class="error">Walang presyo na available.</div>';
+        priceBox.innerHTML = '<p>Walang datos na available</p>';
+        return;
+      }
+
+      // Filter prices if needed and exclude NFA rice
+      let filteredPrices = prices.filter(price => price.type !== 'NFA_RICE');
+      if (filterType !== 'all') {
+        filteredPrices = filteredPrices.filter(price => price.type === filterType);
+      }
+
+      if (filteredPrices.length === 0) {
+        riceContainer.innerHTML = '<div class="error">Walang presyo na available para sa napiling uri.</div>';
+        priceBox.innerHTML = '<p>Walang datos para sa napiling uri</p>';
+        return;
+      }
+
+      // FIX: Remove duplicates by creating a unique key for each type-category combination
+      const uniquePrices = [];
+      const seenCombinations = new Set();
+      
+      filteredPrices.forEach(price => {
+        const key = `${price.type}|${price.category}`;
+        if (!seenCombinations.has(key)) {
+          seenCombinations.add(key);
+          uniquePrices.push(price);
+        }
+      });
+
+      console.log(`📊 Displaying ${uniquePrices.length} unique prices out of ${filteredPrices.length} total`);
+
+      // Display each price
+      uniquePrices.forEach(price => {
+        const displayName = getDisplayName(price.type, price.category);
+        const riceElement = document.createElement('div');
+        riceElement.className = 'rice-type';
+        riceElement.innerHTML = `
+          <span class="rice-type-name">${displayName}</span>
+          <span class="rice-type-price">₱${typeof price.price === 'number' ? price.price.toFixed(2) : price.price}/kg</span>
+        `;
+        riceContainer.appendChild(riceElement);
+      });
+
+      // Calculate average price
+      const validPrices = uniquePrices.filter(price => price.price > 0);
+      const averagePrice = validPrices.length > 0 ? 
+        validPrices.reduce((sum, price) => {
+          const priceValue = typeof price.price === 'number' ? price.price : parseFloat(price.price);
+          return sum + priceValue;
+        }, 0) / validPrices.length : 0;
+      
+      priceBox.innerHTML = `
+        <p>Average Presyo:</p>
+        <p>₱${averagePrice.toFixed(2)}/kg</p>
+        <p><small>Batay sa ${validPrices.length} uri ng bigas</small></p>
+      `;
+
+      if (asOfDate) {
+        try {
+          lastUpdated.textContent = `Huling na-update: ${new Date(asOfDate).toLocaleDateString('en-PH')}`;
+        } catch (e) {
+          lastUpdated.textContent = `Huling na-update: ${asOfDate}`;
+        }
+      }
+    }
+
     // Fallback sample data display
     function showSampleData() {
       const riceContainer = document.getElementById('riceTypesContainer');
@@ -946,69 +1023,6 @@
       }
     }
 
-    // Display current prices
-    function displayCurrentPrices(prices, filterType, asOfDate) {
-      const riceContainer = document.getElementById('riceTypesContainer');
-      const priceBox = document.getElementById('pricePrintBox');
-      const loadingIndicator = document.getElementById('loadingIndicator');
-      const lastUpdated = document.getElementById('lastUpdated');
-
-      loadingIndicator.style.display = 'none';
-      riceContainer.innerHTML = '';
-
-      if (!prices || prices.length === 0) {
-        riceContainer.innerHTML = '<div class="error">Walang presyo na available.</div>';
-        priceBox.innerHTML = '<p>Walang datos na available</p>';
-        return;
-      }
-
-      // Filter prices if needed and exclude NFA rice
-      let filteredPrices = prices.filter(price => price.type !== 'NFA_RICE');
-      if (filterType !== 'all') {
-        filteredPrices = filteredPrices.filter(price => price.type === filterType);
-      }
-
-      if (filteredPrices.length === 0) {
-        riceContainer.innerHTML = '<div class="error">Walang presyo na available para sa napiling uri.</div>';
-        priceBox.innerHTML = '<p>Walang datos para sa napiling uri</p>';
-        return;
-      }
-
-      // Display each price
-      filteredPrices.forEach(price => {
-        const displayName = getDisplayName(price.type, price.category);
-        const riceElement = document.createElement('div');
-        riceElement.className = 'rice-type';
-        riceElement.innerHTML = `
-          <span class="rice-type-name">${displayName}</span>
-          <span class="rice-type-price">₱${typeof price.price === 'number' ? price.price.toFixed(2) : price.price}/kg</span>
-        `;
-        riceContainer.appendChild(riceElement);
-      });
-
-      // Calculate average price
-      const validPrices = filteredPrices.filter(price => price.price > 0);
-      const averagePrice = validPrices.length > 0 ? 
-        validPrices.reduce((sum, price) => {
-          const priceValue = typeof price.price === 'number' ? price.price : parseFloat(price.price);
-          return sum + priceValue;
-        }, 0) / validPrices.length : 0;
-      
-      priceBox.innerHTML = `
-        <p>Average Presyo:</p>
-        <p>₱${averagePrice.toFixed(2)}/kg</p>
-        <p><small>Batay sa ${validPrices.length} uri ng bigas</small></p>
-      `;
-
-      if (asOfDate) {
-        try {
-          lastUpdated.textContent = `Huling na-update: ${new Date(asOfDate).toLocaleDateString('en-PH')}`;
-        } catch (e) {
-          lastUpdated.textContent = `Huling na-update: ${asOfDate}`;
-        }
-      }
-    }
-
     // Filter current prices
     function filterCurrentPrices() {
       const filterType = document.getElementById('priceTypeFilter').value;
@@ -1023,7 +1037,7 @@
       }
     }
 
-    // PROGRESSIVE LOADING FUNCTIONS
+    // FIXED: Price History with proper filtering
     async function showPriceHistory(loadMode = 'initial') {
       if (!backendOnline) {
         showError('historyContent', 'Hindi makakonekta sa server upang kunin ang kasaysayan ng presyo.');
@@ -1053,19 +1067,36 @@
         const historyType = document.getElementById('historyType').value;
         const historyCategory = document.getElementById('historyCategory').value;
         
+        // FIX: Build proper query parameters for filtering
+        let queryParams = [];
+        
+        if (historyType !== 'all') {
+          queryParams.push(`type=${encodeURIComponent(historyType)}`);
+        }
+        
+        if (historyCategory !== 'all') {
+          const [type, category] = historyCategory.split('|');
+          queryParams.push(`type=${encodeURIComponent(type)}`);
+          queryParams.push(`category=${encodeURIComponent(category)}`);
+        }
+        
         let url;
         let response;
         
         if (loadMode === 'initial') {
           // Load first batch quickly
           console.log('📊 Loading initial history data (quick)...');
-          url = `${API_URL}/api/prices/historical/quick-stats?type=${historyType}&category=${historyCategory}`;
+          const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+          url = `${API_URL}/api/prices/historical/quick-stats${queryString}`;
           response = await fetchWithTimeout(url, { timeout: 10000 });
         } else {
           // Load next batch
           console.log('📊 Loading more history data...');
           const currentPage = Math.floor(loadedHistoryCount / PROGRESSIVE_LOAD_SIZE) + 1;
-          url = `${API_URL}/api/prices/historical/paginated?type=${historyType}&category=${historyCategory}&page=${currentPage}&page_size=${PROGRESSIVE_LOAD_SIZE}`;
+          queryParams.push(`page=${currentPage}`);
+          queryParams.push(`page_size=${PROGRESSIVE_LOAD_SIZE}`);
+          const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+          url = `${API_URL}/api/prices/historical/paginated${queryString}`;
           response = await fetchWithTimeout(url, { timeout: 15000 });
         }
         
@@ -1204,7 +1235,7 @@
       console.log(`🕒 Time navigation: ${currentStackIndex + 1}/${timeNavigationStack.length}`);
     }
 
-    // Display price history with progressive loading
+    // FIXED: Display price history with proper filtering and single container
     function displayPriceHistory(data, historyType, historyCategory, hasMore = false) {
       const historyContent = document.getElementById('historyContent');
       
@@ -1222,14 +1253,33 @@
         return;
       }
 
+      // FIX: Apply filtering to the data based on current selections
+      let filteredData = [...data];
+      
+      if (historyType !== 'all') {
+        filteredData = filteredData.filter(item => item.type === historyType);
+      }
+      
+      if (historyCategory !== 'all') {
+        const [type, category] = historyCategory.split('|');
+        filteredData = filteredData.filter(item => 
+          item.type === type && item.category === category
+        );
+      }
+
+      if (filteredData.length === 0) {
+        historyContent.innerHTML = '<div class="error">Walang datos na available para sa napiling uri at kategorya.</div>';
+        return;
+      }
+
       let tableHTML = `
         <h4 style="text-align: center; margin-bottom: 15px; color: #5B3A29;">
           Kasaysayan ng Presyo - ${getHistoryTitle(historyType, historyCategory)}
         </h4>
         <div style="text-align: center; margin-bottom: 10px; color: #666; font-size: 14px;">
-          Na-load na: <strong>${data.length}</strong> rekord | 
-          Petsa mula: <strong>${new Date(Math.min(...data.map(item => new Date(item.date)))).toLocaleDateString('en-PH')}</strong> 
-          hanggang: <strong>${new Date(Math.max(...data.map(item => new Date(item.date)))).toLocaleDateString('en-PH')}</strong>
+          Na-load na: <strong>${filteredData.length}</strong> rekord | 
+          Petsa mula: <strong>${new Date(Math.min(...filteredData.map(item => new Date(item.date)))).toLocaleDateString('en-PH')}</strong> 
+          hanggang: <strong>${new Date(Math.max(...filteredData.map(item => new Date(item.date)))).toLocaleDateString('en-PH')}</strong>
         </div>
       `;
 
@@ -1247,7 +1297,7 @@
             <tbody>
       `;
       
-      data.forEach((item) => {
+      filteredData.forEach((item) => {
         const priceValue = typeof item.price === 'number' ? item.price.toFixed(2) : parseFloat(item.price).toFixed(2);
         const itemDate = new Date(item.date);
         const dateDisplay = itemDate.toLocaleDateString('en-PH');
@@ -1279,14 +1329,8 @@
         `;
       }
       
-      if (isLoadingMore) {
-        // Append to existing content for progressive loading
-        const existingContent = historyContent.innerHTML;
-        historyContent.innerHTML = existingContent + tableHTML;
-      } else {
-        // Replace content for initial load
-        historyContent.innerHTML = tableHTML;
-      }
+      // FIX: Always replace content to avoid duplicate containers
+      historyContent.innerHTML = tableHTML;
       
       // Auto-scroll to show new data if loading progressively
       if (isLoadingMore) {
