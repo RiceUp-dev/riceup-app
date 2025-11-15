@@ -424,6 +424,33 @@
       font-size: 0.8rem;
     }
     
+    /* Current Prices Type Headers */
+    .rice-type-header {
+      background-color: #F8F0E4;
+      padding: 10px 15px;
+      margin-top: 15px;
+      border-radius: 8px;
+      font-weight: bold;
+      color: #5B3A29;
+      border-left: 4px solid #6B8E23;
+    }
+    
+    .rice-type-header:first-child {
+      margin-top: 0;
+    }
+    
+    .rice-type-header.kadiwa {
+      border-left-color: #6B8E23;
+    }
+    
+    .rice-type-header.local {
+      border-left-color: #5B3A29;
+    }
+    
+    .rice-type-header.imported {
+      border-left-color: #8B4513;
+    }
+    
     @media (max-width: 768px) {
       .filter-row {
         flex-direction: column;
@@ -1063,7 +1090,7 @@
       }
     }
 
-    // Display current prices
+    // Display current prices - LIMITED TO 4 PER TYPE
     function displayCurrentPrices(prices, filterType, asOfDate) {
       const riceContainer = document.getElementById('riceTypesContainer');
       const priceBox = document.getElementById('pricePrintBox');
@@ -1090,18 +1117,55 @@
         return;
       }
 
-      filteredPrices.forEach(price => {
-        const displayName = getDisplayName(price.type, price.category);
-        const riceElement = document.createElement('div');
-        riceElement.className = 'rice-type';
-        riceElement.innerHTML = `
-          <span class="rice-type-name">${displayName}</span>
-          <span class="rice-type-price">₱${typeof price.price === 'number' ? price.price.toFixed(2) : price.price}/kg</span>
-        `;
-        riceContainer.appendChild(riceElement);
+      // Group prices by type and limit to 4 per type
+      const groupedPrices = {};
+      const typeLimits = {
+        'KADIWA_RICE_FOR_ALL': 4,
+        'LOCAL': 4,
+        'IMPORTED': 4
+      };
+
+      // Initialize groups
+      Object.keys(typeLimits).forEach(type => {
+        groupedPrices[type] = [];
       });
 
-      const validPrices = filteredPrices.filter(price => price.price > 0);
+      // Sort and group prices by type
+      filteredPrices.forEach(price => {
+        if (groupedPrices[price.type] && groupedPrices[price.type].length < typeLimits[price.type]) {
+          groupedPrices[price.type].push(price);
+        }
+      });
+
+      // Display prices by type with headers
+      Object.keys(groupedPrices).forEach(type => {
+        const typePrices = groupedPrices[type];
+        if (typePrices.length > 0) {
+          // Add type header
+          const headerElement = document.createElement('div');
+          headerElement.className = `rice-type-header ${type.toLowerCase().replace('_rice_for_all', '')}`;
+          headerElement.innerHTML = `
+            <i class="fas fa-tag"></i> ${getDisplayName(type, '')}
+          `;
+          riceContainer.appendChild(headerElement);
+
+          // Add prices for this type
+          typePrices.forEach(price => {
+            const displayName = getDisplayName(price.type, price.category);
+            const riceElement = document.createElement('div');
+            riceElement.className = 'rice-type';
+            riceElement.innerHTML = `
+              <span class="rice-type-name">${displayName.split(' - ')[1]}</span>
+              <span class="rice-type-price">₱${typeof price.price === 'number' ? price.price.toFixed(2) : price.price}/kg</span>
+            `;
+            riceContainer.appendChild(riceElement);
+          });
+        }
+      });
+
+      // Calculate average price from all displayed prices
+      const allDisplayedPrices = Object.values(groupedPrices).flat();
+      const validPrices = allDisplayedPrices.filter(price => price.price > 0);
       const averagePrice = validPrices.length > 0 ? 
         validPrices.reduce((sum, price) => {
           const priceValue = typeof price.price === 'number' ? price.price : parseFloat(price.price);
