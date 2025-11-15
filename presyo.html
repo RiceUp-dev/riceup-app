@@ -246,61 +246,6 @@
       border-left: 4px solid #ffc107;
     }
 
-    .progress-info {
-      background: #f8f9fa;
-      border: 1px solid #e9ecef;
-      border-radius: 8px;
-      padding: 10px;
-      margin: 10px 0;
-      text-align: center;
-      font-size: 14px;
-    }
-
-    .auto-load-indicator {
-      background: #e3f2fd;
-      border-left: 4px solid #2196f3;
-      padding: 8px 12px;
-      margin: 5px 0;
-      border-radius: 4px;
-      font-size: 12px;
-    }
-
-    .load-more-section {
-      text-align: center;
-      padding: 15px;
-      border-top: 1px solid #f0f0f0;
-      margin-top: 10px;
-    }
-
-    .time-navigation {
-      display: flex;
-      gap: 10px;
-      margin: 15px 0;
-      justify-content: center;
-    }
-
-    .time-nav-btn {
-      padding: 10px 20px;
-      background-color: #5B3A29;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: background-color 0.3s;
-      flex: 1;
-      max-width: 150px;
-    }
-
-    .time-nav-btn:hover {
-      background-color: #6B8E23;
-    }
-
-    .time-nav-btn:disabled {
-      background-color: #ccc;
-      cursor: not-allowed;
-    }
-
     .bottom-nav {
       position: fixed;
       bottom: 0;
@@ -373,14 +318,6 @@
         padding: 6px 12px;
         font-size: 12px;
       }
-      .time-navigation {
-        flex-direction: column;
-        align-items: center;
-      }
-      .time-nav-btn {
-        max-width: 100%;
-        width: 100%;
-      }
     }
   </style>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -446,7 +383,7 @@
       </h3>
       
       <div class="history-controls">
-        <select id="historyType" onchange="updateCategoryOptions()">
+        <select id="historyType" onchange="filterHistory()">
           <option value="all">Lahat ng Uri</option>
           <option value="KADIWA_RICE_FOR_ALL">Kadiwa</option>
           <option value="LOCAL">Local</option>
@@ -457,6 +394,15 @@
           <option value="all">Lahat ng Kategorya</option>
           <!-- Options will be loaded dynamically -->
         </select>
+      </div>
+
+      <div style="text-align: center; margin-bottom: 15px;">
+        <button onclick="showAllHistory()" class="pagination-btn" style="margin: 0 5px;">
+          <i class="fas fa-list"></i> Ipakita Lahat
+        </button>
+        <button onclick="resetHistoryPagination()" class="pagination-btn" style="margin: 0 5px;">
+          <i class="fas fa-sync"></i> Balik sa Pinakabago
+        </button>
       </div>
       
       <div class="history-content" id="historyContent">
@@ -550,9 +496,11 @@
     let currentPricesData = [];
     let currentFilter = 'all';
 
-    // History Pagination Variables
+    // Price History with Pagination
+    let historyData = [];
     let currentHistoryPage = 1;
-    const HISTORY_PAGE_SIZE = 50;
+    const HISTORY_PAGE_SIZE = 10;
+    let showAllData = false;
 
     // Enhanced fetch with timeout and retry
     async function fetchWithTimeout(url, options = {}) {
@@ -731,61 +679,16 @@
             const predictionOption = new Option(displayName, value);
             predictionTypeSelect.add(predictionOption);
             
+            // Add to history category dropdown
+            const historyOption = new Option(displayName, value);
+            historyCategorySelect.add(historyOption);
+            
             totalOptions++;
           });
         }
       }
       
-      // Update category options based on initial type selection
-      updateCategoryOptions();
-      
       console.log(`✅ Added ${totalOptions} options to dropdowns`);
-    }
-
-    // FIXED: Update category options based on selected type
-    function updateCategoryOptions() {
-      const historyTypeSelect = document.getElementById('historyType');
-      const historyCategorySelect = document.getElementById('historyCategory');
-      const selectedType = historyTypeSelect.value;
-      
-      console.log('🔄 Updating category options for type:', selectedType);
-      
-      // Clear existing category options except "all"
-      historyCategorySelect.innerHTML = '<option value="all">Lahat ng Kategorya</option>';
-      
-      if (selectedType === 'all') {
-        // Show all categories from all types
-        const allCategories = new Set();
-        for (const [riceType, categories] of Object.entries(availableRiceTypes)) {
-          if (Array.isArray(categories)) {
-            categories.forEach(category => {
-              if (riceType !== 'NFA_RICE') {
-                const displayName = getDisplayName(riceType, category);
-                const value = `${riceType}|${category}`;
-                allCategories.add({displayName, value});
-              }
-            });
-          }
-        }
-        
-        allCategories.forEach(item => {
-          const option = new Option(item.displayName, item.value);
-          historyCategorySelect.add(option);
-        });
-      } else if (availableRiceTypes[selectedType]) {
-        // Show categories only for selected type
-        availableRiceTypes[selectedType].forEach(category => {
-          const displayName = getDisplayName(selectedType, category);
-          const value = `${selectedType}|${category}`;
-          const option = new Option(displayName, value);
-          historyCategorySelect.add(option);
-        });
-      }
-      
-      console.log(`✅ Updated category options: ${historyCategorySelect.options.length} options`);
-      
-      // Trigger filter after updating categories
-      filterHistory();
     }
 
     function getDisplayName(type, category) {
@@ -807,7 +710,7 @@
       return `${typeNames[type] || type} - ${categoryNames[category] || category}`;
     }
 
-    // Load current prices
+    // Load current prices - FIXED VERSION
     async function loadCurrentPrices() {
       if (!backendOnline) {
         showError('riceTypesContainer', 'Hindi makakonekta sa server upang kunin ang mga presyo.');
@@ -865,91 +768,6 @@
       }
     }
 
-    // FIXED: Display current prices with proper filtering and limit to one per type-category
-    function displayCurrentPrices(prices, filterType, asOfDate) {
-      const riceContainer = document.getElementById('riceTypesContainer');
-      const priceBox = document.getElementById('pricePrintBox');
-      const loadingIndicator = document.getElementById('loadingIndicator');
-      const lastUpdated = document.getElementById('lastUpdated');
-
-      loadingIndicator.style.display = 'none';
-      riceContainer.innerHTML = '';
-
-      if (!prices || prices.length === 0) {
-        riceContainer.innerHTML = '<div class="error">Walang presyo na available.</div>';
-        priceBox.innerHTML = '<p>Walang datos na available</p>';
-        return;
-      }
-
-      // Filter prices if needed and exclude NFA rice
-      let filteredPrices = prices.filter(price => price.type !== 'NFA_RICE');
-      if (filterType !== 'all') {
-        filteredPrices = filteredPrices.filter(price => price.type === filterType);
-      }
-
-      if (filteredPrices.length === 0) {
-        riceContainer.innerHTML = '<div class="error">Walang presyo na available para sa napiling uri.</div>';
-        priceBox.innerHTML = '<p>Walang datos para sa napiling uri</p>';
-        return;
-      }
-
-      // FIX: Remove duplicates by creating a unique key for each type-category combination
-      const uniquePrices = [];
-      const seenCombinations = new Set();
-      
-      // Counters for each type to limit display
-      const typeCounts = {
-        'KADIWA_RICE_FOR_ALL': 0,
-        'LOCAL': 0,
-        'IMPORTED': 0
-      };
-      
-      filteredPrices.forEach(price => {
-        const key = `${price.type}|${price.category}`;
-        if (!seenCombinations.has(key) && typeCounts[price.type] < 4) {
-          seenCombinations.add(key);
-          uniquePrices.push(price);
-          typeCounts[price.type]++;
-        }
-      });
-
-      console.log(`📊 Displaying ${uniquePrices.length} unique prices (limited to 4 per type)`);
-
-      // Display each price
-      uniquePrices.forEach(price => {
-        const displayName = getDisplayName(price.type, price.category);
-        const riceElement = document.createElement('div');
-        riceElement.className = 'rice-type';
-        riceElement.innerHTML = `
-          <span class="rice-type-name">${displayName}</span>
-          <span class="rice-type-price">₱${typeof price.price === 'number' ? price.price.toFixed(2) : price.price}/kg</span>
-        `;
-        riceContainer.appendChild(riceElement);
-      });
-
-      // Calculate average price
-      const validPrices = uniquePrices.filter(price => price.price > 0);
-      const averagePrice = validPrices.length > 0 ? 
-        validPrices.reduce((sum, price) => {
-          const priceValue = typeof price.price === 'number' ? price.price : parseFloat(price.price);
-          return sum + priceValue;
-        }, 0) / validPrices.length : 0;
-      
-      priceBox.innerHTML = `
-        <p>Average Presyo:</p>
-        <p>₱${averagePrice.toFixed(2)}/kg</p>
-        <p><small>Batay sa ${validPrices.length} uri ng bigas</small></p>
-      `;
-
-      if (asOfDate) {
-        try {
-          lastUpdated.textContent = `Huling na-update: ${new Date(asOfDate).toLocaleDateString('en-PH')}`;
-        } catch (e) {
-          lastUpdated.textContent = `Huling na-update: ${asOfDate}`;
-        }
-      }
-    }
-
     // Fallback sample data display
     function showSampleData() {
       const riceContainer = document.getElementById('riceTypesContainer');
@@ -1004,22 +822,82 @@
       }
     }
 
+    // Display current prices
+    function displayCurrentPrices(prices, filterType, asOfDate) {
+      const riceContainer = document.getElementById('riceTypesContainer');
+      const priceBox = document.getElementById('pricePrintBox');
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      const lastUpdated = document.getElementById('lastUpdated');
+
+      loadingIndicator.style.display = 'none';
+      riceContainer.innerHTML = '';
+
+      if (!prices || prices.length === 0) {
+        riceContainer.innerHTML = '<div class="error">Walang presyo na available.</div>';
+        priceBox.innerHTML = '<p>Walang datos na available</p>';
+        return;
+      }
+
+      // Filter prices if needed and exclude NFA rice
+      let filteredPrices = prices.filter(price => price.type !== 'NFA_RICE');
+      if (filterType !== 'all') {
+        filteredPrices = filteredPrices.filter(price => price.type === filterType);
+      }
+
+      if (filteredPrices.length === 0) {
+        riceContainer.innerHTML = '<div class="error">Walang presyo na available para sa napiling uri.</div>';
+        priceBox.innerHTML = '<p>Walang datos para sa napiling uri</p>';
+        return;
+      }
+
+      // Display each price
+      filteredPrices.forEach(price => {
+        const displayName = getDisplayName(price.type, price.category);
+        const riceElement = document.createElement('div');
+        riceElement.className = 'rice-type';
+        riceElement.innerHTML = `
+          <span class="rice-type-name">${displayName}</span>
+          <span class="rice-type-price">₱${typeof price.price === 'number' ? price.price.toFixed(2) : price.price}/kg</span>
+        `;
+        riceContainer.appendChild(riceElement);
+      });
+
+      // Calculate average price
+      const validPrices = filteredPrices.filter(price => price.price > 0);
+      const averagePrice = validPrices.length > 0 ? 
+        validPrices.reduce((sum, price) => {
+          const priceValue = typeof price.price === 'number' ? price.price : parseFloat(price.price);
+          return sum + priceValue;
+        }, 0) / validPrices.length : 0;
+      
+      priceBox.innerHTML = `
+        <p>Average Presyo:</p>
+        <p>₱${averagePrice.toFixed(2)}/kg</p>
+        <p><small>Batay sa ${validPrices.length} uri ng bigas</small></p>
+      `;
+
+      if (asOfDate) {
+        try {
+          lastUpdated.textContent = `Huling na-update: ${new Date(asOfDate).toLocaleDateString('en-PH')}`;
+        } catch (e) {
+          lastUpdated.textContent = `Huling na-update: ${asOfDate}`;
+        }
+      }
+    }
+
     // Filter current prices
     function filterCurrentPrices() {
       const filterType = document.getElementById('priceTypeFilter').value;
       currentFilter = filterType;
       
-      console.log('🔍 Filtering current prices by:', filterType);
-      console.log('📊 Available data:', currentPricesData.length, 'records');
-      
-      if (currentPricesData && currentPricesData.length > 0) {
+      if (currentPricesData.length > 0) {
         const asOfDate = document.getElementById('lastUpdated').textContent.replace('Huling na-update: ', '');
         displayCurrentPrices(currentPricesData, filterType, asOfDate);
       }
     }
 
-    // FIXED: Price History with pagination (no scroll, use navigation)
-    async function showPriceHistory(loadMode = 'initial') {
+    // Price History Functions - FIXED VERSION
+    async function showPriceHistory() {
       if (!backendOnline) {
         showError('historyContent', 'Hindi makakonekta sa server upang kunin ang kasaysayan ng presyo.');
         return;
@@ -1028,116 +906,132 @@
       const historyContent = document.getElementById('historyContent');
       const historyLoading = document.getElementById('historyLoading');
 
-      if (loadMode === 'initial') {
-        historyLoading.style.display = 'block';
-        historyContent.innerHTML = '';
-        currentHistoryPage = 1;
-      }
+      historyLoading.style.display = 'block';
+      historyContent.innerHTML = '';
 
       try {
-        const historyType = document.getElementById('historyType').value;
-        const historyCategory = document.getElementById('historyCategory').value;
+        console.log('📊 Fetching history from:', `${API_URL}/api/prices/historical?limit=100`);
+        updateDebugInfo('Kumukuha ng kasaysayan ng presyo...');
         
-        // Build query parameters for filtering
-        let queryParams = [];
-        
-        if (historyType !== 'all') {
-          queryParams.push(`type=${encodeURIComponent(historyType)}`);
-        }
-        
-        if (historyCategory !== 'all') {
-          const [type, category] = historyCategory.split('|');
-          queryParams.push(`type=${encodeURIComponent(type)}`);
-          queryParams.push(`category=${encodeURIComponent(category)}`);
-        }
-        
-        // Add pagination parameters
-        queryParams.push(`page=${currentHistoryPage}`);
-        queryParams.push(`page_size=${HISTORY_PAGE_SIZE}`);
-        
-        const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
-        const url = `${API_URL}/api/prices/historical/paginated${queryString}`;
-        
-        console.log('📊 Loading history page:', currentHistoryPage);
-        
-        const response = await fetchWithTimeout(url, { timeout: 15000 });
+        // Request 100 records
+        const response = await fetchWithTimeout(`${API_URL}/api/prices/historical?limit=100`, {
+          timeout: 15000
+        });
         
         if (response.ok) {
           const data = await response.json();
-          console.log('✅ Received history data:', data.data?.length, 'records');
+          console.log('✅ Received history data response:', data);
           
-          const historyData = data.data || [];
-          const pagination = data.pagination || {};
+          // Handle response format
+          if (data.success && data.data) {
+            historyData = data.data.historical_data || [];
+            console.log(`📊 Loaded ${historyData.length} history records`);
+          } else {
+            historyData = data.historical_data || data.data || [];
+          }
           
-          displayPriceHistory(historyData, historyType, historyCategory, pagination);
-          updateDebugInfo(`✅ Kasaysayan ng presyo: page ${currentHistoryPage}`);
+          // Sort by date (newest first) if not already sorted
+          historyData.sort((a, b) => new Date(b.date) - new Date(a.date));
+          
+          currentHistoryPage = 1;
+          showAllData = false;
+          filterHistory();
+          updateDebugInfo(`✅ Kasaysayan ng presyo ay nakuha na (${historyData.length} records)`);
         } else {
+          console.error('❌ API response not OK for history:', response.status);
           throw new Error(`API responded with status: ${response.status}`);
         }
       } catch (error) {
         console.error('❌ Error loading history:', error);
         showError('historyContent', `Hindi makakuha ng kasaysayan ng presyo: ${error.message}`);
+        updateDebugInfo(`❌ Hindi makakuha ng kasaysayan: ${error.message}`, true);
       } finally {
         historyLoading.style.display = 'none';
       }
     }
 
-    // FIXED: Display price history with pagination controls
-    function displayPriceHistory(data, historyType, historyCategory, pagination = {}) {
+    function filterHistory() {
+      const historyType = document.getElementById('historyType').value;
+      const historyCategory = document.getElementById('historyCategory').value;
+      
+      if (historyData.length > 0) {
+        displayPriceHistory(historyData, historyType, historyCategory);
+      }
+    }
+
+    function displayPriceHistory(data, historyType, historyCategory) {
       const historyContent = document.getElementById('historyContent');
       
-      historyContent.innerHTML = '';
-
-      if (!data || data.length === 0) {
-        historyContent.innerHTML = '<div class="error">Walang datos na available para sa napiling uri at kategorya.</div>';
-        return;
-      }
-
-      // FIX: Apply filtering to the data based on current selections
-      let filteredData = [...data];
+      // Filter out NFA rice data
+      let filteredData = data.filter(item => item.type !== 'NFA_RICE');
       
+      // Apply type filter
       if (historyType !== 'all') {
         filteredData = filteredData.filter(item => item.type === historyType);
       }
       
+      // Apply category filter
       if (historyCategory !== 'all') {
         const [type, category] = historyCategory.split('|');
         filteredData = filteredData.filter(item => 
           item.type === type && item.category === category
         );
       }
-
-      if (filteredData.length === 0) {
+      
+      if (!filteredData || filteredData.length === 0) {
         historyContent.innerHTML = '<div class="error">Walang datos na available para sa napiling uri at kategorya.</div>';
         return;
+      }
+
+      let displayData = filteredData;
+      let totalPages = 1;
+      let startIndex = 0;
+      let endIndex = filteredData.length;
+
+      if (!showAllData) {
+        totalPages = Math.ceil(filteredData.length / HISTORY_PAGE_SIZE);
+        startIndex = (currentHistoryPage - 1) * HISTORY_PAGE_SIZE;
+        endIndex = Math.min(startIndex + HISTORY_PAGE_SIZE, filteredData.length);
+        displayData = filteredData.slice(startIndex, endIndex);
       }
 
       let tableHTML = `
         <h4 style="text-align: center; margin-bottom: 15px; color: #5B3A29;">
           Kasaysayan ng Presyo - ${getHistoryTitle(historyType, historyCategory)}
+          ${showAllData ? '<br><small>(Ipinapakita ang LAHAT ng datos)</small>' : ''}
         </h4>
-        <div style="text-align: center; margin-bottom: 10px; color: #666; font-size: 14px;">
-          Pahina: <strong>${currentHistoryPage}</strong> | 
-          Ipinapakita: <strong>${filteredData.length}</strong> rekord |
-          Kabuuan: <strong>${pagination.total_records || filteredData.length}</strong> rekord
-        </div>
       `;
 
+      if (!showAllData) {
+        tableHTML += `
+          <div class="pagination-controls">
+            <button onclick="previousHistoryPage()" ${currentHistoryPage === 1 ? 'disabled' : ''} class="pagination-btn">
+              <i class="fas fa-arrow-left"></i> Mas Luma
+            </button>
+            <span class="pagination-info">
+              Pahina ${currentHistoryPage} ng ${totalPages} (${filteredData.length} total)
+            </span>
+            <button onclick="nextHistoryPage()" ${currentHistoryPage === totalPages ? 'disabled' : ''} class="pagination-btn">
+              Mas Bago <i class="fas fa-arrow-right"></i>
+            </button>
+          </div>
+        `;
+      }
+
       tableHTML += `
-        <div style="max-height: 400px; overflow-y: auto;">
-          <table class="history-table">
-            <thead>
-              <tr>
-                <th>Petsa</th>
-                <th>Uri</th>
-                <th>Kategorya</th>
-                <th>Presyo (₱/kg)</th>
-              </tr>
-            </thead>
-            <tbody>
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Petsa</th>
+              <th>Uri</th>
+              <th>Kategorya</th>
+              <th>Presyo (₱/kg)</th>
+            </tr>
+          </thead>
+          <tbody>
       `;
       
-      filteredData.forEach((item) => {
+      displayData.forEach((item) => {
         const priceValue = typeof item.price === 'number' ? item.price.toFixed(2) : parseFloat(item.price).toFixed(2);
         const itemDate = new Date(item.date);
         const dateDisplay = itemDate.toLocaleDateString('en-PH');
@@ -1153,57 +1047,57 @@
       });
       
       tableHTML += `
-            </tbody>
-          </table>
-        </div>
-      `;
-      
-      // Add pagination controls
-      const hasPrevious = pagination.has_prev || currentHistoryPage > 1;
-      const hasNext = pagination.has_next || (pagination.total_pages && currentHistoryPage < pagination.total_pages);
-      
-      tableHTML += `
-        <div class="pagination-controls" style="margin-top: 15px;">
-          <button onclick="previousHistoryPage()" class="pagination-btn" ${!hasPrevious ? 'disabled' : ''}>
-            <i class="fas fa-arrow-left"></i> Mas Bago
-          </button>
-          
-          <span class="pagination-info">
-            Pahina ${currentHistoryPage}${pagination.total_pages ? ` ng ${pagination.total_pages}` : ''}
-          </span>
-          
-          <button onclick="nextHistoryPage()" class="pagination-btn" ${!hasNext ? 'disabled' : ''}>
-            Mas Luma <i class="fas fa-arrow-right"></i>
-          </button>
-        </div>
+          </tbody>
+        </table>
       `;
       
       historyContent.innerHTML = tableHTML;
     }
 
-    // Navigation functions for history
-    function previousHistoryPage() {
-      if (currentHistoryPage > 1) {
-        currentHistoryPage--;
-        showPriceHistory('navigation');
-      }
+    function showAllHistory() {
+      showAllData = true;
+      const historyType = document.getElementById('historyType').value;
+      const historyCategory = document.getElementById('historyCategory').value;
+      displayPriceHistory(historyData, historyType, historyCategory);
+    }
+
+    function resetHistoryPagination() {
+      showAllData = false;
+      currentHistoryPage = 1;
+      const historyType = document.getElementById('historyType').value;
+      const historyCategory = document.getElementById('historyCategory').value;
+      displayPriceHistory(historyData, historyType, historyCategory);
     }
 
     function nextHistoryPage() {
-      currentHistoryPage++;
-      showPriceHistory('navigation');
-    }
-
-    // Update your existing filterHistory function
-    function filterHistory() {
       const historyType = document.getElementById('historyType').value;
       const historyCategory = document.getElementById('historyCategory').value;
       
-      console.log('🔍 Filtering history by:', historyType, historyCategory);
+      let filteredData = historyData.filter(item => item.type !== 'NFA_RICE');
+      if (historyType !== 'all') {
+        filteredData = filteredData.filter(item => item.type === historyType);
+      }
+      if (historyCategory !== 'all') {
+        const [type, category] = historyCategory.split('|');
+        filteredData = filteredData.filter(item => 
+          item.type === type && item.category === category
+        );
+      }
       
-      // Reset to first page and reload with new filters
-      currentHistoryPage = 1;
-      showPriceHistory('initial');
+      const totalPages = Math.ceil(filteredData.length / HISTORY_PAGE_SIZE);
+      if (currentHistoryPage < totalPages) {
+        currentHistoryPage++;
+        displayPriceHistory(historyData, historyType, historyCategory);
+      }
+    }
+
+    function previousHistoryPage() {
+      if (currentHistoryPage > 1) {
+        currentHistoryPage--;
+        const historyType = document.getElementById('historyType').value;
+        const historyCategory = document.getElementById('historyCategory').value;
+        displayPriceHistory(historyData, historyType, historyCategory);
+      }
     }
 
     function getHistoryTitle(historyType, historyCategory) {
@@ -1298,6 +1192,41 @@
       container.innerHTML = `<div class="error">${message}</div>`;
     }
 
+    // DEBUG FUNCTION - Test all API endpoints
+    async function debugAllEndpoints() {
+      console.log('🔍 Testing all API endpoints...');
+      
+      const endpoints = [
+        { url: '/api/health', method: 'GET' },
+        { url: '/api/prices/types', method: 'GET' },
+        { url: '/api/prices/current', method: 'GET' },
+        { url: '/api/prices/historical?limit=5', method: 'GET' }
+      ];
+      
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`\n📡 Testing: ${endpoint.method} ${endpoint.url}`);
+          const response = await fetch(`${API_URL}${endpoint.url}`);
+          const data = await response.json();
+          console.log(`✅ SUCCESS:`, data);
+          
+          if (endpoint.url === '/api/prices/current') {
+            console.log(`📊 Current prices count:`, data.data?.current_prices?.length || 0);
+            console.log(`📊 Current prices data:`, data.data?.current_prices);
+          }
+          if (endpoint.url === '/api/prices/historical') {
+            console.log(`📊 Historical data count:`, data.data?.historical_data?.length || 0);
+            console.log(`📊 Historical data sample:`, data.data?.historical_data?.slice(0, 3));
+          }
+          if (endpoint.url === '/api/prices/types') {
+            console.log(`📋 Available types:`, data.data);
+          }
+        } catch (error) {
+          console.error(`❌ FAILED: ${endpoint.url}`, error);
+        }
+      }
+    }
+
     // Initialize the application
     async function initializeApp() {
       console.log('🚀 Initializing RiceUp application...');
@@ -1314,7 +1243,7 @@
           // Then load other data in parallel
           await Promise.all([
             loadCurrentPrices(),
-            showPriceHistory('initial')
+            showPriceHistory()
           ]);
           
           console.log('✅ RiceUp application initialized successfully!');
