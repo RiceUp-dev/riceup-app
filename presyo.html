@@ -350,7 +350,7 @@
       <div class="dropdown-container">
         <select id="priceTypeFilter" onchange="filterCurrentPrices()">
           <option value="all">Lahat ng Uri ng Bigas</option>
-          <option value="KADIWA">Kadiwa</option>
+          <option value="KADIWA_RICE_FOR_ALL">Kadiwa</option>
           <option value="LOCAL">Local</option>
           <option value="IMPORTED">Imported</option>
         </select>
@@ -385,7 +385,7 @@
       <div class="history-controls">
         <select id="historyType" onchange="filterHistory()">
           <option value="all">Lahat ng Uri</option>
-          <option value="KADIWA">Kadiwa</option>
+          <option value="KADIWA_RICE_FOR_ALL">Kadiwa</option>
           <option value="LOCAL">Local</option>
           <option value="IMPORTED">Imported</option>
         </select>
@@ -487,7 +487,7 @@
   </nav>
 
   <script>
-    // 🔄 BACKEND URL
+    // 🔄 BACKEND URL - UPDATE THIS WITH YOUR ACTUAL RENDER URL
     const API_URL = 'https://riceup-backend.onrender.com';
     let backendOnline = false;
 
@@ -539,11 +539,12 @@
         console.log('🔍 Checking backend connection to:', API_URL);
         updateDebugInfo('Sinusuri ang koneksyon sa backend...');
         
-        const response = await fetchWithTimeout(`${API_URL}/`, {
+        const response = await fetchWithTimeout(`${API_URL}/api/health`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-          }
+          },
+          timeout: 10000
         });
         
         if (response.ok) {
@@ -554,9 +555,9 @@
           document.getElementById('connectionStatus').style.display = 'none';
           document.getElementById('successStatus').style.display = 'block';
           document.getElementById('successMessage').textContent = 
-            `Nakakonekta sa backend! ${data.data_status?.total_records || 2187} records loaded`;
+            `Nakakonekta sa backend! ${data.data?.total_records || 0} records loaded`;
           
-          updateDebugInfo(`✅ Backend connected: ${data.message}`);
+          updateDebugInfo(`✅ Backend connected: ${data.data?.status || 'OK'}`);
           return true;
         } else {
           throw new Error(`Backend responded with status: ${response.status}`);
@@ -567,14 +568,46 @@
         document.getElementById('connectionStatus').style.display = 'block';
         document.getElementById('successStatus').style.display = 'none';
         updateDebugInfo(`❌ Connection failed: ${error.message}`, true);
+        
+        // Add retry button
+        const connectionStatus = document.getElementById('connectionStatus');
+        connectionStatus.innerHTML = `
+          <p><i class="fas fa-exclamation-triangle"></i> Hindi makakonekta sa server. Pakisubukan muli mamaya.</p>
+          <button onclick="retryConnection()" style="
+            margin-top: 10px;
+            padding: 8px 16px;
+            background: #6B8E23;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+          ">
+            <i class="fas fa-redo"></i> Subukan Muli
+          </button>
+        `;
         return false;
       }
+    }
+
+    // Add retry function
+    function retryConnection() {
+      initializeApp();
     }
 
     // Load available rice types from backend - WITH HARDCODED FALLBACK
     async function loadRiceTypes() {
       if (!backendOnline) {
         console.log('Backend offline, skipping rice types load');
+        // Use hardcoded types based on your CSV data
+        availableRiceTypes = {
+          'KADIWA_RICE_FOR_ALL': ['Premium', 'Well_Milled', 'Regular_Milled', 'P20'],
+          'LOCAL': ['Special', 'Premium', 'Well_Milled', 'Regular_Milled'],
+          'IMPORTED': ['Special', 'Premium', 'Well_Milled', 'Regular_Milled'],
+          'NFA_RICE': ['Well_Milled']
+        };
+        
+        populateDropdowns(availableRiceTypes);
+        updateDebugInfo('✅ Gamit ang mga hardcoded na uri ng bigas');
         return;
       }
 
@@ -659,10 +692,9 @@
 
     function getDisplayName(type, category) {
       const typeNames = {
-        'KADIWA': 'Kadiwa',
+        'KADIWA_RICE_FOR_ALL': 'Kadiwa',
         'LOCAL': 'Local',
         'IMPORTED': 'Imported',
-        'KADIWA_RICE_FOR_ALL': 'Kadiwa',
         'NFA_RICE': 'NFA'
       };
       
@@ -681,6 +713,8 @@
     async function loadCurrentPrices() {
       if (!backendOnline) {
         showError('riceTypesContainer', 'Hindi makakonekta sa server upang kunin ang mga presyo.');
+        // Show sample data when backend is offline
+        showSampleData();
         return;
       }
 
@@ -696,37 +730,66 @@
         updateDebugInfo('Kumukuha ng mga kasalukuyang presyo...');
         
         const response = await fetchWithTimeout(`${API_URL}/api/prices/current`, {
-          timeout: 20000 // 20 second timeout for current prices
+          timeout: 20000
         });
         
         if (response.ok) {
           const data = await response.json();
           console.log('✅ Received current prices:', data);
           
-          // Handle the response format
+          // Handle different response formats
+          let prices = [];
+          let asOfDate = null;
+          
           if (data.success && data.data) {
-            currentPricesData = data.data.current_prices || [];
+            prices = data.data.current_prices || [];
+            asOfDate = data.data.as_of_date;
           } else if (data.current_prices) {
-            currentPricesData = data.current_prices;
+            prices = data.current_prices;
+            asOfDate = data.as_of_date;
           } else {
-            currentPricesData = data.data || [];
+            prices = data.data || [];
           }
           
           // Check data freshness
-          checkDataFreshness(currentPricesData);
+          checkDataFreshness(prices);
           
-          const asOfDate = data.data?.as_of_date || data.as_of_date;
-          displayCurrentPrices(currentPricesData, 'all', asOfDate);
+          displayCurrentPrices(prices, 'all', asOfDate);
           updateDebugInfo('✅ Mga kasalukuyang presyo ay nakuha na');
         } else {
-          console.error('❌ API response not OK for current prices:', response.status);
-          throw new Error(`API responded with status: ${response.status}`);
+          const errorData = await response.json();
+          throw new Error(errorData.error || `API responded with status: ${response.status}`);
         }
       } catch (error) {
         console.error('❌ Error loading prices:', error);
         showError('riceTypesContainer', `Hindi makakuha ng mga kasalukuyang presyo: ${error.message}`);
         updateDebugInfo(`❌ Hindi makakuha ng mga presyo: ${error.message}`, true);
+        
+        // Show sample data when backend fails
+        showSampleData();
       }
+    }
+
+    // Fallback sample data display
+    function showSampleData() {
+      const riceContainer = document.getElementById('riceTypesContainer');
+      const priceBox = document.getElementById('pricePrintBox');
+      
+      const sampleData = [
+        { type: 'LOCAL', category: 'Special', price: 58.50 },
+        { type: 'LOCAL', category: 'Premium', price: 53.50 },
+        { type: 'LOCAL', category: 'Well_Milled', price: 48.00 },
+        { type: 'IMPORTED', category: 'Special', price: 57.00 },
+        { type: 'IMPORTED', category: 'Premium', price: 52.00 },
+        { type: 'KADIWA_RICE_FOR_ALL', category: 'Well_Milled', price: 40.00 }
+      ];
+      
+      displayCurrentPrices(sampleData, 'all', new Date());
+      
+      const warningDiv = document.getElementById('dataWarning');
+      warningDiv.style.display = 'block';
+      document.getElementById('warningText').textContent = 
+        '⚠️ Ipinapakita ang sample data. Ang backend ay hindi available.';
     }
 
     // Check if data is recent
@@ -885,8 +948,6 @@
         historyLoading.style.display = 'none';
       }
     }
-
-    // ... (rest of the history functions remain the same)
 
     function filterHistory() {
       const historyType = document.getElementById('historyType').value;
@@ -1130,6 +1191,26 @@
       container.innerHTML = `<div class="error">${message}</div>`;
     }
 
+    // Test API endpoints manually
+    async function testAllEndpoints() {
+      const endpoints = [
+        '/api/health',
+        '/api/prices/types', 
+        '/api/prices/current',
+        '/api/prices/historical?limit=5'
+      ];
+      
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(`${API_URL}${endpoint}`);
+          const data = await response.json();
+          console.log(`✅ ${endpoint}:`, data);
+        } catch (error) {
+          console.error(`❌ ${endpoint}:`, error);
+        }
+      }
+    }
+
     // Initialize the application
     async function initializeApp() {
       console.log('🚀 Initializing RiceUp application...');
@@ -1153,10 +1234,17 @@
           updateDebugInfo('✅ Aplikasyon ay handa na!');
         } else {
           console.error('❌ Application initialization failed: Backend offline');
+          // Still try to load with fallback data
+          await loadRiceTypes();
+          showSampleData();
         }
       } catch (error) {
         console.error('❌ Application initialization error:', error);
         updateDebugInfo(`❌ Error sa aplikasyon: ${error.message}`, true);
+        
+        // Load with fallback data even if initialization fails
+        await loadRiceTypes();
+        showSampleData();
       }
     }
 
