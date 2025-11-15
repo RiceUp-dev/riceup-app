@@ -885,16 +885,96 @@
       }
     }
 
-    // Filter current prices
-    function filterCurrentPrices() {
-      const filterType = document.getElementById('priceTypeFilter').value;
-      currentFilter = filterType;
-      
-      if (currentPricesData.length > 0) {
-        const asOfDate = document.getElementById('lastUpdated').textContent.replace('Huling na-update: ', '');
-        displayCurrentPrices(currentPricesData, filterType, asOfDate);
-      }
+// Filter current prices - CORRECTED VERSION
+function filterCurrentPrices() {
+  const filterType = document.getElementById('priceTypeFilter').value;
+  currentFilter = filterType;
+  
+  console.log('🔍 Filtering current prices by:', filterType);
+  console.log('📊 Available data:', currentPricesData.length, 'records');
+  
+  if (currentPricesData && currentPricesData.length > 0) {
+    // Log what types are available in the data
+    const availableTypes = [...new Set(currentPricesData.map(item => item.type))];
+    console.log('📋 Available types in data:', availableTypes);
+    
+    const asOfDate = document.getElementById('lastUpdated').textContent.replace('Huling na-update: ', '');
+    
+    // Apply the filter
+    let filteredData = currentPricesData;
+    if (filterType !== 'all') {
+      filteredData = currentPricesData.filter(price => price.type === filterType);
+      console.log(`📊 After filtering by ${filterType}:`, filteredData.length, 'records');
     }
+    
+    // Display current prices - IMPROVED VERSION
+function displayCurrentPrices(prices, filterType, asOfDate) {
+  const riceContainer = document.getElementById('riceTypesContainer');
+  const priceBox = document.getElementById('pricePrintBox');
+  const loadingIndicator = document.getElementById('loadingIndicator');
+  const lastUpdated = document.getElementById('lastUpdated');
+
+  loadingIndicator.style.display = 'none';
+  riceContainer.innerHTML = '';
+
+  console.log('🔄 Displaying prices:', prices.length, 'records with filter:', filterType);
+
+  if (!prices || prices.length === 0) {
+    riceContainer.innerHTML = '<div class="error">Walang presyo na available para sa napiling uri.</div>';
+    priceBox.innerHTML = '<p>Walang datos para sa napiling uri</p>';
+    return;
+  }
+
+  // Filter out NFA rice (always exclude NFA)
+  let filteredPrices = prices.filter(price => price.type !== 'NFA_RICE');
+  
+  // Apply type filter (this should already be done, but double-check)
+  if (filterType !== 'all') {
+    filteredPrices = filteredPrices.filter(price => price.type === filterType);
+  }
+
+  console.log('📊 Final filtered prices:', filteredPrices.length, 'records');
+
+  if (filteredPrices.length === 0) {
+    riceContainer.innerHTML = '<div class="error">Walang presyo na available para sa napiling uri.</div>';
+    priceBox.innerHTML = '<p>Walang datos para sa napiling uri</p>';
+    return;
+  }
+
+  // Display each price
+  filteredPrices.forEach(price => {
+    const displayName = getDisplayName(price.type, price.category);
+    const riceElement = document.createElement('div');
+    riceElement.className = 'rice-type';
+    riceElement.innerHTML = `
+      <span class="rice-type-name">${displayName}</span>
+      <span class="rice-type-price">₱${typeof price.price === 'number' ? price.price.toFixed(2) : price.price}/kg</span>
+    `;
+    riceContainer.appendChild(riceElement);
+  });
+
+  // Calculate average price
+  const validPrices = filteredPrices.filter(price => price.price > 0);
+  const averagePrice = validPrices.length > 0 ? 
+    validPrices.reduce((sum, price) => {
+      const priceValue = typeof price.price === 'number' ? price.price : parseFloat(price.price);
+      return sum + priceValue;
+    }, 0) / validPrices.length : 0;
+  
+  priceBox.innerHTML = `
+    <p>Average Presyo ${filterType !== 'all' ? `(${getDisplayName(filterType, '')})` : ''}:</p>
+    <p>₱${averagePrice.toFixed(2)}/kg</p>
+    <p><small>Batay sa ${validPrices.length} uri ng bigas</small></p>
+  `;
+
+  if (asOfDate) {
+    try {
+      lastUpdated.textContent = `Huling na-update: ${new Date(asOfDate).toLocaleDateString('en-PH')}`;
+    } catch (e) {
+      lastUpdated.textContent = `Huling na-update: ${asOfDate}`;
+    }
+  }
+}
 
 // Price History Functions - IMPROVED VERSION
 async function showPriceHistory() {
@@ -1275,4 +1355,5 @@ async function showPriceHistory() {
   </script>
 </body>
 </html>
+
 
