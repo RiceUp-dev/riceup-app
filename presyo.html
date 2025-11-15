@@ -376,46 +376,48 @@
       </div>
     </div>
 
-<!-- Price History Section -->
-<div class="history-section">
-  <h3 style="text-align: center; margin-bottom: 15px; color: #5B3A29;">
-    <i class="fas fa-history"></i> Kasaysayan ng Presyo
-  </h3>
-  
-  <div class="history-controls">
-    <select id="historyType" onchange="filterHistory()">
-      <option value="all">Lahat ng Uri</option>
-      <option value="KADIWA_RICE_FOR_ALL">Kadiwa</option>
-      <option value="LOCAL">Local</option>
-      <option value="IMPORTED">Imported</option>
-    </select>
-    
-    <select id="historyCategory" onchange="filterHistory()">
-      <option value="all">Lahat ng Kategorya</option>
-      <!-- Options will be loaded dynamically -->
-    </select>
+    <!-- Price History Section -->
+    <div class="history-section">
+      <h3 style="text-align: center; margin-bottom: 15px; color: #5B3A29;">
+        <i class="fas fa-history"></i> Kasaysayan ng Presyo
+      </h3>
+      
+      <div class="history-controls">
+        <select id="historyType" onchange="filterHistory()">
+          <option value="all">Lahat ng Uri</option>
+          <option value="KADIWA_RICE_FOR_ALL">Kadiwa</option>
+          <option value="LOCAL">Local</option>
+          <option value="IMPORTED">Imported</option>
+        </select>
+        
+        <select id="historyCategory" onchange="filterHistory()">
+          <option value="all">Lahat ng Kategorya</option>
+          <!-- Options will be loaded dynamically -->
+        </select>
 
-    <select id="historyYear" onchange="filterHistory()">
-      <option value="all">Lahat ng Taon</option>
-      <!-- 2025, 2024, 2023 will be populated automatically -->
-    </select>
-  </div>
+        <select id="historyYear" onchange="filterHistory()">
+          <option value="all">Lahat ng Taon</option>
+          <option value="2025">2025</option>
+          <option value="2024">2024</option>
+          <option value="2023">2023</option>
+        </select>
+      </div>
 
-  <div style="text-align: center; margin-bottom: 15px;">
-    <button onclick="showAllHistory()" class="pagination-btn" style="margin: 0 5px;">
-      <i class="fas fa-list"></i> Ipakita Lahat
-    </button>
-    <button onclick="resetHistoryPagination()" class="pagination-btn" style="margin: 0 5px;">
-      <i class="fas fa-sync"></i> Balik sa Pinakabago
-    </button>
-  </div>
-  
-  <div class="history-content" id="historyContent">
-    <div class="loading" id="historyLoading">
-      <i class="fas fa-spinner fa-spin"></i> Kinukuha ang kasaysayan ng presyo...
+      <div style="text-align: center; margin-bottom: 15px;">
+        <button onclick="showAllHistory()" class="pagination-btn" style="margin: 0 5px;">
+          <i class="fas fa-list"></i> Ipakita Lahat
+        </button>
+        <button onclick="resetHistoryPagination()" class="pagination-btn" style="margin: 0 5px;">
+          <i class="fas fa-sync"></i> Balik sa Pinakabago
+        </button>
+      </div>
+      
+      <div class="history-content" id="historyContent">
+        <div class="loading" id="historyLoading">
+          <i class="fas fa-spinner fa-spin"></i> Kinukuha ang kasaysayan ng presyo...
+        </div>
+      </div>
     </div>
-  </div>
-</div>
 
     <!-- Price Prediction Section -->
     <div class="prediction-section">
@@ -491,11 +493,7 @@
     </a>
   </nav>
 
- // Replace your entire script section with this:
-
-// Replace your entire script section with this version:
-
-<script>
+  <script>
     // 🔄 BACKEND URL - UPDATE THIS WITH YOUR ACTUAL RENDER URL
     const API_URL = 'https://riceup-backend.onrender.com';
     let backendOnline = false;
@@ -508,11 +506,8 @@
     // Price History with Year-based Filtering
     let historyData = [];
     let currentHistoryPage = 1;
-    const HISTORY_PAGE_SIZE = 50;
+    const HISTORY_PAGE_SIZE = 100; // Increased to show more data
     let showAllData = false;
-    
-    // Your specific years based on your dataset
-    const availableYears = ['2025', '2024', '2023']; // Your actual data years
 
     // Enhanced fetch with timeout and retry
     async function fetchWithTimeout(url, options = {}) {
@@ -603,19 +598,6 @@
     // Add retry function
     function retryConnection() {
       initializeApp();
-    }
-
-    // Populate year dropdown with your specific years
-    function populateYearDropdown() {
-      const yearSelect = document.getElementById('historyYear');
-      yearSelect.innerHTML = '<option value="all">Lahat ng Taon</option>';
-      
-      availableYears.forEach(year => {
-        const option = new Option(year.toString(), year.toString());
-        yearSelect.add(option);
-      });
-      
-      console.log(`✅ Populated year dropdown with your years: ${availableYears.join(', ')}`);
     }
 
     // Load available rice types from backend
@@ -906,7 +888,7 @@
       }
     }
 
-    // Price History Functions - YEAR-BASED FILTERING
+    // Price History Functions - FIXED VERSION
     async function showPriceHistory() {
       if (!backendOnline) {
         showError('historyContent', 'Hindi makakonekta sa server upang kunin ang kasaysayan ng presyo.');
@@ -934,8 +916,13 @@
           if (data.success && data.data) {
             historyData = data.data.historical_data || [];
             console.log(`📊 Loaded ${historyData.length} history records`);
+            
+            // Remove duplicates
+            historyData = removeDuplicateHistory(historyData);
+            console.log(`📊 After removing duplicates: ${historyData.length} records`);
           } else {
             historyData = data.historical_data || data.data || [];
+            historyData = removeDuplicateHistory(historyData);
           }
           
           historyData.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -955,6 +942,23 @@
       } finally {
         historyLoading.style.display = 'none';
       }
+    }
+
+    // Function to remove duplicate history records
+    function removeDuplicateHistory(data) {
+      const seen = new Set();
+      const uniqueData = [];
+      
+      data.forEach(item => {
+        const key = `${item.date}_${item.type}_${item.category}`;
+        
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniqueData.push(item);
+        }
+      });
+      
+      return uniqueData;
     }
 
     // Year-based filtering function
@@ -1071,16 +1075,22 @@
           Kasaysayan ng Presyo - ${getHistoryTitle(historyType, historyCategory)}
           ${showAllData ? '<br><small>(Ipinapakita ang LAHAT ng datos)</small>' : ''}
         </h4>
+        
+        <div style="text-align: center; margin-bottom: 15px; color: #666; font-size: 14px;">
+          <i class="fas fa-info-circle"></i> 
+          Ipinapakita ang ${startIndex + 1}-${endIndex} ng ${filteredData.length} records
+          ${filteredData.length > HISTORY_PAGE_SIZE ? ` (Pahina ${currentHistoryPage} ng ${totalPages})` : ''}
+        </div>
       `;
 
-      if (!showAllData) {
+      if (!showAllData && totalPages > 1) {
         tableHTML += `
           <div class="pagination-controls">
             <button onclick="previousHistoryPage()" ${currentHistoryPage === 1 ? 'disabled' : ''} class="pagination-btn">
               <i class="fas fa-arrow-left"></i> Mas Luma
             </button>
             <span class="pagination-info">
-              Pahina ${currentHistoryPage} ng ${totalPages} (${filteredData.length} total)
+              Pahina ${currentHistoryPage} ng ${totalPages}
             </span>
             <button onclick="nextHistoryPage()" ${currentHistoryPage === totalPages ? 'disabled' : ''} class="pagination-btn">
               Mas Bago <i class="fas fa-arrow-right"></i>
@@ -1090,19 +1100,20 @@
       }
 
       tableHTML += `
-        <table class="history-table">
-          <thead>
-            <tr>
-              <th>Petsa</th>
-              <th>Uri</th>
-              <th>Kategorya</th>
-              <th>Presyo (₱/kg)</th>
-            </tr>
-          </thead>
-          <tbody>
+        <div style="max-height: 600px; overflow-y: auto;">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Petsa</th>
+                <th>Uri</th>
+                <th>Kategorya</th>
+                <th>Presyo (₱/kg)</th>
+              </tr>
+            </thead>
+            <tbody>
       `;
       
-      displayData.forEach((item) => {
+      displayData.forEach((item, index) => {
         const priceValue = typeof item.price === 'number' ? item.price.toFixed(2) : parseFloat(item.price).toFixed(2);
         const itemDate = new Date(item.date);
         const dateDisplay = itemDate.toLocaleDateString('en-PH');
@@ -1118,9 +1129,20 @@
       });
       
       tableHTML += `
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
       `;
+      
+      if (!showAllData && filteredData.length > HISTORY_PAGE_SIZE) {
+        tableHTML += `
+          <div style="text-align: center; margin-top: 15px;">
+            <button onclick="showAllHistory()" class="pagination-btn">
+              <i class="fas fa-list"></i> Ipakita Lahat ng ${filteredData.length} Records
+            </button>
+          </div>
+        `;
+      }
       
       historyContent.innerHTML = tableHTML;
     }
@@ -1273,9 +1295,6 @@
         const connected = await checkBackendConnection();
         
         if (connected) {
-          // Populate year dropdown with your specific years
-          populateYearDropdown();
-          
           // Load rice types FIRST (this populates the dropdowns)
           await loadRiceTypes();
           
@@ -1290,7 +1309,6 @@
         } else {
           console.error('❌ Application initialization failed: Backend offline');
           // Still try to load with fallback data
-          populateYearDropdown();
           await loadRiceTypes();
           showSampleData();
         }
@@ -1299,7 +1317,6 @@
         updateDebugInfo(`❌ Error sa aplikasyon: ${error.message}`, true);
         
         // Load with fallback data even if initialization fails
-        populateYearDropdown();
         await loadRiceTypes();
         showSampleData();
       }
