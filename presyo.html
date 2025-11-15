@@ -377,40 +377,40 @@
     </div>
 
     <!-- Price History Section -->
-    <div class="history-section">
-      <h3 style="text-align: center; margin-bottom: 15px; color: #5B3A29;">
-        <i class="fas fa-history"></i> Kasaysayan ng Presyo
-      </h3>
-      
-      <div class="history-controls">
-        <select id="historyType" onchange="filterHistory()">
-          <option value="all">Lahat ng Uri</option>
-          <option value="KADIWA_RICE_FOR_ALL">Kadiwa</option>
-          <option value="LOCAL">Local</option>
-          <option value="IMPORTED">Imported</option>
-        </select>
-        
-        <select id="historyCategory" onchange="filterHistory()">
-          <option value="all">Lahat ng Kategorya</option>
-          <!-- Options will be loaded dynamically -->
-        </select>
-      </div>
+<div class="history-section">
+  <h3 style="text-align: center; margin-bottom: 15px; color: #5B3A29;">
+    <i class="fas fa-history"></i> Kasaysayan ng Presyo
+  </h3>
+  
+  <div class="history-controls">
+    <select id="historyType" onchange="filterHistory()">
+      <option value="all">Lahat ng Uri</option>
+      <option value="KADIWA_RICE_FOR_ALL">Kadiwa</option>
+      <option value="LOCAL">Local</option>
+      <option value="IMPORTED">Imported</option>
+    </select>
+    
+    <select id="historyCategory" onchange="filterHistory()">
+      <option value="all">Lahat ng Kategorya</option>
+      <!-- Options will be loaded dynamically -->
+    </select>
+  </div>
 
-      <div style="text-align: center; margin-bottom: 15px;">
-        <button onclick="showAllHistory()" class="pagination-btn" style="margin: 0 5px;">
-          <i class="fas fa-list"></i> Ipakita Lahat
-        </button>
-        <button onclick="resetHistoryPagination()" class="pagination-btn" style="margin: 0 5px;">
-          <i class="fas fa-sync"></i> Balik sa Pinakabago
-        </button>
-      </div>
-      
-      <div class="history-content" id="historyContent">
-        <div class="loading" id="historyLoading">
-          <i class="fas fa-spinner fa-spin"></i> Kinukuha ang kasaysayan ng presyo...
-        </div>
-      </div>
+  <div style="text-align: center; margin-bottom: 15px;">
+    <button onclick="showAllHistory()" class="pagination-btn" style="margin: 0 5px;">
+      <i class="fas fa-list"></i> Ipakita Lahat
+    </button>
+    <button onclick="resetHistoryPagination()" class="pagination-btn" style="margin: 0 5px;">
+      <i class="fas fa-sync"></i> Balik sa Pinakabago
+    </button>
+  </div>
+  
+  <div class="history-content" id="historyContent">
+    <div class="loading" id="historyLoading">
+      <i class="fas fa-spinner fa-spin"></i> Kinukuha ang kasaysayan ng presyo...
     </div>
+  </div>
+</div>
 
     <!-- Price Prediction Section -->
     <div class="prediction-section">
