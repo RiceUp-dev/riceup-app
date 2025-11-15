@@ -376,7 +376,6 @@
       </div>
     </div>
 
-    <!-- Price History Section -->
 <!-- Price History Section -->
 <div class="history-section">
   <h3 style="text-align: center; margin-bottom: 15px; color: #5B3A29;">
@@ -398,12 +397,7 @@
 
     <select id="historyYear" onchange="filterHistory()">
       <option value="all">Lahat ng Taon</option>
-      <option value="2024">2024</option>
-      <option value="2023">2023</option>
-      <option value="2022">2022</option>
-      <option value="2021">2021</option>
-      <option value="2020">2020</option>
-      <!-- Add more years as needed based on your data -->
+      <!-- 2025, 2024, 2023 will be populated automatically -->
     </select>
   </div>
 
@@ -499,6 +493,8 @@
 
  // Replace your entire script section with this:
 
+// Replace your entire script section with this version:
+
 <script>
     // 🔄 BACKEND URL - UPDATE THIS WITH YOUR ACTUAL RENDER URL
     const API_URL = 'https://riceup-backend.onrender.com';
@@ -512,12 +508,15 @@
     // Price History with Year-based Filtering
     let historyData = [];
     let currentHistoryPage = 1;
-    const HISTORY_PAGE_SIZE = 50; // Increased page size
+    const HISTORY_PAGE_SIZE = 50;
     let showAllData = false;
+    
+    // Your specific years based on your dataset
+    const availableYears = ['2025', '2024', '2023']; // Your actual data years
 
     // Enhanced fetch with timeout and retry
     async function fetchWithTimeout(url, options = {}) {
-      const { timeout = 15000, retries = 1 } = options; // 15 second timeout, 1 retry
+      const { timeout = 15000, retries = 1 } = options;
       
       for (let attempt = 0; attempt <= retries; attempt++) {
         const controller = new AbortController();
@@ -534,7 +533,7 @@
           clearTimeout(id);
           if (attempt === retries) throw error;
           console.log(`Retrying ${url}... (attempt ${attempt + 1})`);
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
     }
@@ -582,7 +581,6 @@
         document.getElementById('successStatus').style.display = 'none';
         updateDebugInfo(`❌ Connection failed: ${error.message}`, true);
         
-        // Add retry button
         const connectionStatus = document.getElementById('connectionStatus');
         connectionStatus.innerHTML = `
           <p><i class="fas fa-exclamation-triangle"></i> Hindi makakonekta sa server. Pakisubukan muli mamaya.</p>
@@ -607,11 +605,23 @@
       initializeApp();
     }
 
-    // Load available rice types from backend - WITH HARDCODED FALLBACK
+    // Populate year dropdown with your specific years
+    function populateYearDropdown() {
+      const yearSelect = document.getElementById('historyYear');
+      yearSelect.innerHTML = '<option value="all">Lahat ng Taon</option>';
+      
+      availableYears.forEach(year => {
+        const option = new Option(year.toString(), year.toString());
+        yearSelect.add(option);
+      });
+      
+      console.log(`✅ Populated year dropdown with your years: ${availableYears.join(', ')}`);
+    }
+
+    // Load available rice types from backend
     async function loadRiceTypes() {
       if (!backendOnline) {
         console.log('Backend offline, using hardcoded rice types');
-        // Use hardcoded types based on your CSV data
         availableRiceTypes = {
           'KADIWA_RICE_FOR_ALL': ['Premium', 'Well_Milled', 'Regular_Milled', 'P20'],
           'LOCAL': ['Special', 'Premium', 'Well_Milled', 'Regular_Milled'],
@@ -636,7 +646,6 @@
           const data = await response.json();
           console.log('✅ Received rice types response:', data);
           
-          // Handle the response format from your backend
           if (data.success && data.data) {
             availableRiceTypes = data.data;
           } else {
@@ -653,7 +662,6 @@
       } catch (error) {
         console.error('❌ Error loading rice types:', error);
         
-        // Use hardcoded types based on your CSV data
         console.log('🔄 Using hardcoded rice types based on CSV data');
         availableRiceTypes = {
           'KADIWA_RICE_FOR_ALL': ['Premium', 'Well_Milled', 'Regular_Milled', 'P20'],
@@ -673,7 +681,6 @@
       
       console.log('📋 Populating dropdowns with:', typesData);
       
-      // Clear existing options
       predictionTypeSelect.innerHTML = '<option value="">Pumili ng Uri ng Bigas</option>';
       historyCategorySelect.innerHTML = '<option value="all">Lahat ng Kategorya</option>';
       
@@ -682,17 +689,14 @@
       for (const [riceType, categories] of Object.entries(typesData)) {
         if (Array.isArray(categories)) {
           categories.forEach(category => {
-            // Skip NFA rice for predictions
             if (riceType === 'NFA_RICE') return;
             
             const displayName = getDisplayName(riceType, category);
             const value = `${riceType}|${category}`;
             
-            // Add to prediction dropdown
             const predictionOption = new Option(displayName, value);
             predictionTypeSelect.add(predictionOption);
             
-            // Add to history category dropdown
             const historyOption = new Option(displayName, value);
             historyCategorySelect.add(historyOption);
             
@@ -723,7 +727,7 @@
       return `${typeNames[type] || type} - ${categoryNames[category] || category}`;
     }
 
-    // Load current prices - FIXED VERSION
+    // Load current prices
     async function loadCurrentPrices() {
       if (!backendOnline) {
         showError('riceTypesContainer', 'Hindi makakonekta sa server upang kunin ang mga presyo.');
@@ -750,15 +754,12 @@
           const data = await response.json();
           console.log('✅ Received current prices response:', data);
           
-          // Store the data globally
           currentPricesData = [];
           
-          // Handle different response formats
           if (data.success && data.data) {
             currentPricesData = data.data.current_prices || [];
             console.log('📊 Current prices data:', currentPricesData);
             
-            // Check data freshness
             checkDataFreshness(currentPricesData);
             
             const asOfDate = data.data.as_of_date;
@@ -776,7 +777,6 @@
         showError('riceTypesContainer', `Hindi makakuha ng mga kasalukuyang presyo: ${error.message}`);
         updateDebugInfo(`❌ Hindi makakuha ng mga presyo: ${error.message}`, true);
         
-        // Show sample data when backend fails
         showSampleData();
       }
     }
@@ -851,7 +851,6 @@
         return;
       }
 
-      // Filter prices if needed and exclude NFA rice
       let filteredPrices = prices.filter(price => price.type !== 'NFA_RICE');
       if (filterType !== 'all') {
         filteredPrices = filteredPrices.filter(price => price.type === filterType);
@@ -863,7 +862,6 @@
         return;
       }
 
-      // Display each price
       filteredPrices.forEach(price => {
         const displayName = getDisplayName(price.type, price.category);
         const riceElement = document.createElement('div');
@@ -875,7 +873,6 @@
         riceContainer.appendChild(riceElement);
       });
 
-      // Calculate average price
       const validPrices = filteredPrices.filter(price => price.price > 0);
       const averagePrice = validPrices.length > 0 ? 
         validPrices.reduce((sum, price) => {
@@ -926,7 +923,6 @@
         console.log('📊 Fetching history from:', `${API_URL}/api/prices/historical?limit=500`);
         updateDebugInfo('Kumukuha ng kasaysayan ng presyo...');
         
-        // Request 500 records for better data coverage
         const response = await fetchWithTimeout(`${API_URL}/api/prices/historical?limit=500`, {
           timeout: 15000
         });
@@ -935,7 +931,6 @@
           const data = await response.json();
           console.log('✅ Received history data response:', data);
           
-          // Handle response format
           if (data.success && data.data) {
             historyData = data.data.historical_data || [];
             console.log(`📊 Loaded ${historyData.length} history records`);
@@ -943,7 +938,6 @@
             historyData = data.historical_data || data.data || [];
           }
           
-          // Sort by date (newest first) if not already sorted
           historyData.sort((a, b) => new Date(b.date) - new Date(a.date));
           
           currentHistoryPage = 1;
@@ -970,10 +964,8 @@
       const historyCategory = document.getElementById('historyCategory').value;
       
       if (year === 'all') {
-        // Use regular history endpoint
         await showPriceHistory();
       } else {
-        // Use optimized endpoint with year filter
         await loadHistoryByYear(year, historyType, historyCategory);
       }
     }
@@ -1009,7 +1001,7 @@
             console.log(`📊 Loaded ${historyData.length} records for year ${year}`);
             
             currentHistoryPage = 1;
-            showAllData = true; // Show all data for the selected year
+            showAllData = true;
             displayPriceHistory(historyData, type, category);
             updateDebugInfo(`✅ Kasaysayan para sa ${year} ay nakuha na (${historyData.length} records)`);
           } else {
@@ -1037,7 +1029,6 @@
           displayPriceHistory(historyData, historyType, historyCategory);
         }
       } else {
-        // Year filter is active, use year-based filtering
         filterHistoryByYear();
       }
     }
@@ -1045,15 +1036,12 @@
     function displayPriceHistory(data, historyType, historyCategory) {
       const historyContent = document.getElementById('historyContent');
       
-      // Filter out NFA rice data
       let filteredData = data.filter(item => item.type !== 'NFA_RICE');
       
-      // Apply type filter
       if (historyType !== 'all') {
         filteredData = filteredData.filter(item => item.type === historyType);
       }
       
-      // Apply category filter
       if (historyCategory !== 'all') {
         const [type, category] = historyCategory.split('|');
         filteredData = filteredData.filter(item => 
@@ -1285,6 +1273,9 @@
         const connected = await checkBackendConnection();
         
         if (connected) {
+          // Populate year dropdown with your specific years
+          populateYearDropdown();
+          
           // Load rice types FIRST (this populates the dropdowns)
           await loadRiceTypes();
           
@@ -1299,6 +1290,7 @@
         } else {
           console.error('❌ Application initialization failed: Backend offline');
           // Still try to load with fallback data
+          populateYearDropdown();
           await loadRiceTypes();
           showSampleData();
         }
@@ -1307,6 +1299,7 @@
         updateDebugInfo(`❌ Error sa aplikasyon: ${error.message}`, true);
         
         // Load with fallback data even if initialization fails
+        populateYearDropdown();
         await loadRiceTypes();
         showSampleData();
       }
