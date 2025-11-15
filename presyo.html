@@ -486,7 +486,9 @@
     </a>
   </nav>
 
-  <script>
+ // Replace your entire script section with this:
+
+<script>
     // 🔄 BACKEND URL - UPDATE THIS WITH YOUR ACTUAL RENDER URL
     const API_URL = 'https://riceup-backend.onrender.com';
     let backendOnline = false;
@@ -496,10 +498,10 @@
     let currentPricesData = [];
     let currentFilter = 'all';
 
-    // Price History with Pagination
+    // Price History with Year-based Filtering
     let historyData = [];
     let currentHistoryPage = 1;
-    const HISTORY_PAGE_SIZE = 10;
+    const HISTORY_PAGE_SIZE = 50; // Increased page size
     let showAllData = false;
 
     // Enhanced fetch with timeout and retry
@@ -896,7 +898,7 @@
       }
     }
 
-    // Price History Functions - FIXED VERSION
+    // Price History Functions - YEAR-BASED FILTERING
     async function showPriceHistory() {
       if (!backendOnline) {
         showError('historyContent', 'Hindi makakonekta sa server upang kunin ang kasaysayan ng presyo.');
@@ -910,11 +912,11 @@
       historyContent.innerHTML = '';
 
       try {
-        console.log('📊 Fetching history from:', `${API_URL}/api/prices/historical?limit=100`);
+        console.log('📊 Fetching history from:', `${API_URL}/api/prices/historical?limit=500`);
         updateDebugInfo('Kumukuha ng kasaysayan ng presyo...');
         
-        // Request 100 records
-        const response = await fetchWithTimeout(`${API_URL}/api/prices/historical?limit=100`, {
+        // Request 500 records for better data coverage
+        const response = await fetchWithTimeout(`${API_URL}/api/prices/historical?limit=500`, {
           timeout: 15000
         });
         
@@ -950,12 +952,82 @@
       }
     }
 
-    function filterHistory() {
+    // Year-based filtering function
+    async function filterHistoryByYear() {
+      const year = document.getElementById('historyYear').value;
       const historyType = document.getElementById('historyType').value;
       const historyCategory = document.getElementById('historyCategory').value;
       
-      if (historyData.length > 0) {
-        displayPriceHistory(historyData, historyType, historyCategory);
+      if (year === 'all') {
+        // Use regular history endpoint
+        await showPriceHistory();
+      } else {
+        // Use optimized endpoint with year filter
+        await loadHistoryByYear(year, historyType, historyCategory);
+      }
+    }
+
+    async function loadHistoryByYear(year, type, category) {
+      if (!backendOnline) {
+        showError('historyContent', 'Hindi makakonekta sa server.');
+        return;
+      }
+
+      const historyContent = document.getElementById('historyContent');
+      const historyLoading = document.getElementById('historyLoading');
+
+      historyLoading.style.display = 'block';
+      historyContent.innerHTML = '';
+
+      try {
+        let url = `${API_URL}/api/prices/historical/optimized?year=${year}&limit=1000`;
+        if (type !== 'all') url += `&type=${type}`;
+        if (category !== 'all') {
+          const [filterType, filterCategory] = category.split('|');
+          url += `&type=${filterType}&category=${filterCategory}`;
+        }
+        
+        console.log('📊 Fetching year-based history:', url);
+        
+        const response = await fetchWithTimeout(url, { timeout: 15000 });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            historyData = data.data.historical_data || [];
+            console.log(`📊 Loaded ${historyData.length} records for year ${year}`);
+            
+            currentHistoryPage = 1;
+            showAllData = true; // Show all data for the selected year
+            displayPriceHistory(historyData, type, category);
+            updateDebugInfo(`✅ Kasaysayan para sa ${year} ay nakuha na (${historyData.length} records)`);
+          } else {
+            throw new Error('Invalid response format');
+          }
+        } else {
+          throw new Error(`Server responded with status: ${response.status}`);
+        }
+      } catch (error) {
+        console.error('❌ Error loading year history:', error);
+        showError('historyContent', `Hindi makakuha ng kasaysayan para sa ${year}: ${error.message}`);
+        updateDebugInfo(`❌ Hindi makakuha ng kasaysayan: ${error.message}`, true);
+      } finally {
+        historyLoading.style.display = 'none';
+      }
+    }
+
+    function filterHistory() {
+      const historyType = document.getElementById('historyType').value;
+      const historyCategory = document.getElementById('historyCategory').value;
+      const historyYear = document.getElementById('historyYear').value;
+      
+      if (historyYear === 'all') {
+        if (historyData.length > 0) {
+          displayPriceHistory(historyData, historyType, historyCategory);
+        }
+      } else {
+        // Year filter is active, use year-based filtering
+        filterHistoryByYear();
       }
     }
 
@@ -1190,41 +1262,6 @@
     function showError(containerId, message) {
       const container = document.getElementById(containerId);
       container.innerHTML = `<div class="error">${message}</div>`;
-    }
-
-    // DEBUG FUNCTION - Test all API endpoints
-    async function debugAllEndpoints() {
-      console.log('🔍 Testing all API endpoints...');
-      
-      const endpoints = [
-        { url: '/api/health', method: 'GET' },
-        { url: '/api/prices/types', method: 'GET' },
-        { url: '/api/prices/current', method: 'GET' },
-        { url: '/api/prices/historical?limit=5', method: 'GET' }
-      ];
-      
-      for (const endpoint of endpoints) {
-        try {
-          console.log(`\n📡 Testing: ${endpoint.method} ${endpoint.url}`);
-          const response = await fetch(`${API_URL}${endpoint.url}`);
-          const data = await response.json();
-          console.log(`✅ SUCCESS:`, data);
-          
-          if (endpoint.url === '/api/prices/current') {
-            console.log(`📊 Current prices count:`, data.data?.current_prices?.length || 0);
-            console.log(`📊 Current prices data:`, data.data?.current_prices);
-          }
-          if (endpoint.url === '/api/prices/historical') {
-            console.log(`📊 Historical data count:`, data.data?.historical_data?.length || 0);
-            console.log(`📊 Historical data sample:`, data.data?.historical_data?.slice(0, 3));
-          }
-          if (endpoint.url === '/api/prices/types') {
-            console.log(`📋 Available types:`, data.data);
-          }
-        } catch (error) {
-          console.error(`❌ FAILED: ${endpoint.url}`, error);
-        }
-      }
     }
 
     // Initialize the application
