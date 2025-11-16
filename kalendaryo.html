@@ -837,7 +837,7 @@
             }
         }
 
-        // Delete activity from Firebase
+        // Delete activity from Firebase - FIXED VERSION
         async function deleteActivityFromFirebase(activityId) {
             if (!firebaseReady || !currentUser) {
                 throw new Error('User not authenticated');
@@ -850,18 +850,30 @@
                 if (userDoc.exists()) {
                     const userData = userDoc.data();
                     const activities = userData.activities || [];
+                    
+                    // Find the activity to delete - fix comparison issue
+                    const activityToDelete = activities.find(a => a.id === activityId);
+                    
+                    if (!activityToDelete) {
+                        console.error('Activity not found:', activityId);
+                        return false;
+                    }
+                    
+                    // Create new array without the deleted activity
                     const updatedActivities = activities.filter(a => a.id !== activityId);
                     
+                    // Update the document with the new activities array
                     await updateDoc(doc(db, "users", currentUser.uid), {
                         activities: updatedActivities
                     });
                     
+                    console.log('Activity deleted successfully:', activityId);
                     return true;
                 }
                 return false;
             } catch (error) {
                 console.error('Error deleting activity:', error);
-                throw new Error('Failed to delete activity');
+                throw new Error('Failed to delete activity: ' + error.message);
             }
         }
 
@@ -1233,6 +1245,8 @@
             document.querySelectorAll('.delete-activity').forEach(button => {
                 button.addEventListener('click', async function() {
                     const activityId = parseInt(this.getAttribute('data-id'));
+                    console.log('Deleting activity with ID:', activityId);
+                    
                     try {
                         await deleteActivityFromFirebase(activityId);
                         await renderCalendar();
