@@ -1057,7 +1057,13 @@
                 const userDoc = await getDoc(doc(db, "users", currentUser.uid));
                 if (userDoc.exists()) {
                     const userData = userDoc.data();
-                    const updatedActivities = userData.activities.filter(a => a.id !== activityId);
+                    // Convert activityId to number for comparison
+                    const activityIdNum = typeof activityId === 'string' ? parseInt(activityId) : activityId;
+                    const updatedActivities = userData.activities.filter(a => {
+                        // Handle both numeric IDs and string IDs
+                        const aId = typeof a.id === 'string' ? parseInt(a.id) : a.id;
+                        return aId !== activityIdNum;
+                    });
                     
                     await updateDoc(doc(db, "users", currentUser.uid), {
                         activities: updatedActivities
@@ -1081,7 +1087,7 @@
                 const activityDate = new Date(plantingDate);
                 activityDate.setDate(plantingDate.getDate() + schedule.daysAfterPlanting);
                 scheduledActivities.push({
-                    id: 'scheduled_' + Date.now() + Math.random(),
+                    id: 'scheduled_' + Date.now() + '_' + Math.random(),
                     date: activityDate.toISOString(),
                     type: 'scheduled_fertilizer',
                     scheduledType: 'fertilizer',
@@ -1099,7 +1105,7 @@
                     const activityDate = new Date(plantingDate);
                     activityDate.setDate(plantingDate.getDate() + day);
                     scheduledActivities.push({
-                        id: 'scheduled_' + Date.now() + Math.random(),
+                        id: 'scheduled_' + Date.now() + '_' + Math.random(),
                         date: activityDate.toISOString(),
                         type: 'scheduled_watering',
                         scheduledType: 'watering',
@@ -1166,34 +1172,15 @@
             return optimalPlantingDates[month] && optimalPlantingDates[month].includes(day);
         }
 
-        // Mark watering as completed
-        async function completeWatering(activityId) {
-            if (!firebaseReady || !currentUser) return;
+        // Get all scheduled activities for current planting
+        function getScheduledActivitiesForPlanting(plantingActivity, allActivities) {
+            if (!plantingActivity) return [];
             
-            const { db, doc, getDoc, updateDoc } = window.firebase;
+            const scheduledActivities = allActivities.filter(activity => 
+                activity.isScheduled && activity.variety === plantingActivity.varietyName
+            );
             
-            try {
-                const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-                if (userDoc.exists()) {
-                    const userData = userDoc.data();
-                    const updatedActivities = userData.activities.map(activity => {
-                        if (activity.id === activityId) {
-                            return { ...activity, completed: true };
-                        }
-                        return activity;
-                    });
-                    
-                    await updateDoc(doc(db, "users", currentUser.uid), {
-                        activities: updatedActivities
-                    });
-                    
-                    return true;
-                }
-                return false;
-            } catch (error) {
-                console.error('Error completing watering:', error);
-                throw new Error('Failed to complete watering');
-            }
+            return scheduledActivities;
         }
 
         // Initialize the calendar
@@ -1249,6 +1236,16 @@
             // Load user activities
             const userActivities = await loadUserActivities();
             
+            // Get the latest planting activity to determine scheduled activities
+            const plantingActivities = userActivities.filter(a => a.type === 'planting');
+            const latestPlanting = plantingActivities.length > 0 ? 
+                plantingActivities.reduce((latest, current) => 
+                    new Date(current.date) > new Date(latest.date) ? current : latest
+                ) : null;
+            
+            const scheduledActivities = latestPlanting ? 
+                getScheduledActivitiesForPlanting(latestPlanting, userActivities) : [];
+            
             // Create calendar rows
             let date = 1;
             for (let i = 0; i < 6; i++) {
@@ -1285,11 +1282,16 @@
                             cell.classList.add('today');
                         }
                         
-                        // Check if this date has activities
+                        // Check if this date has manual activities
                         const activitiesForDate = getActivitiesForDate(userActivities, cellDate);
-                        const scheduledActivities = getScheduledActivitiesForDate(userActivities, cellDate);
                         
-                        if (activitiesForDate.length > 0 || scheduledActivities.length > 0) {
+                        // Check if this date has scheduled activities from current planting
+                        const scheduledForDate = scheduledActivities.filter(activity => {
+                            const activityDate = new Date(activity.date);
+                            return activityDate.toDateString() === cellDate.toDateString();
+                        });
+                        
+                        if (activitiesForDate.length > 0 || scheduledForDate.length > 0) {
                             cell.classList.add('has-activity');
                             
                             // Add activity indicators
@@ -1305,7 +1307,7 @@
                             
                             // Watering activities - show completed vs scheduled
                             const wateringActivities = activitiesForDate.filter(a => a.type === 'watering');
-                            const scheduledWatering = scheduledActivities.filter(a => a.scheduledType === 'watering');
+                            const scheduledWatering = scheduledForDate.filter(a => a.scheduledType === 'watering');
                             
                             if (wateringActivities.length > 0) {
                                 const dot = document.createElement('div');
@@ -1330,7 +1332,7 @@
                             }
                             
                             // Scheduled fertilizer
-                            if (scheduledActivities.some(a => a.scheduledType === 'fertilizer')) {
+                            if (scheduledForDate.some(a => a.scheduledType === 'fertilizer')) {
                                 const dot = document.createElement('div');
                                 dot.className = 'activity-dot fertilizer-dot';
                                 dot.style.opacity = '0.7';
@@ -1373,15 +1375,6 @@
         function getActivitiesForDate(activities, date) {
             return activities.filter(activity => {
                 if (activity.isScheduled) return false; // Exclude scheduled activities
-                const activityDate = new Date(activity.date);
-                return activityDate.toDateString() === date.toDateString();
-            });
-        }
-
-        // Get scheduled activities for a specific date
-        function getScheduledActivitiesForDate(activities, date) {
-            return activities.filter(activity => {
-                if (!activity.isScheduled) return false;
                 const activityDate = new Date(activity.date);
                 return activityDate.toDateString() === date.toDateString();
             });
@@ -1613,9 +1606,10 @@
             // Add event listeners to delete buttons
             document.querySelectorAll('.delete-activity').forEach(button => {
                 button.addEventListener('click', async function() {
-                    const activityId = parseInt(this.getAttribute('data-id'));
+                    const activityId = this.getAttribute('data-id');
                     try {
                         await deleteActivityFromFirebase(activityId);
+                        // Refresh everything after deletion
                         await renderCalendar();
                         await updateActivitiesList();
                         updateHarvestPrediction();
