@@ -459,6 +459,7 @@
             color: #ff6b6b;
             cursor: pointer;
             font-size: 1.2rem;
+            padding: 5px;
         }
 
         .complete-watering {
@@ -468,6 +469,7 @@
             cursor: pointer;
             font-size: 1.2rem;
             margin-right: 10px;
+            padding: 5px;
         }
 
         .harvest-prediction {
@@ -1079,7 +1081,7 @@
                 const activityDate = new Date(plantingDate);
                 activityDate.setDate(plantingDate.getDate() + schedule.daysAfterPlanting);
                 scheduledActivities.push({
-                    id: Date.now() + Math.random(),
+                    id: 'scheduled_' + Date.now() + Math.random(),
                     date: activityDate.toISOString(),
                     type: 'scheduled_fertilizer',
                     scheduledType: 'fertilizer',
@@ -1097,7 +1099,7 @@
                     const activityDate = new Date(plantingDate);
                     activityDate.setDate(plantingDate.getDate() + day);
                     scheduledActivities.push({
-                        id: Date.now() + Math.random(),
+                        id: 'scheduled_' + Date.now() + Math.random(),
                         date: activityDate.toISOString(),
                         type: 'scheduled_watering',
                         scheduledType: 'watering',
@@ -1550,8 +1552,8 @@
             
             loadingActivities.style.display = 'none';
             
-            // Filter out scheduled activities for the main activities list, but include scheduled watering that needs completion
-            const manualActivities = userActivities.filter(a => !a.isScheduled || (a.isScheduled && a.scheduledType === 'watering' && !a.completed));
+            // Only show manual activities (no scheduled activities)
+            const manualActivities = userActivities.filter(a => !a.isScheduled);
             
             if (manualActivities.length === 0) {
                 activitiesContainer.innerHTML = '<p>Wala pang mga aktibidad na naitala.</p>';
@@ -1580,7 +1582,6 @@
                         <div class="activity-date">${dateString}</div>
                         <div>
                             <span class="activity-type ${activity.type}">
-                                ${activity.isScheduled ? 'Naka-iskedyul na ' : ''}
                                 ${activity.type === 'planting' ? 'Pagtatanim' : 
                                   activity.type === 'watering' ? 'Pagtutubig' : 
                                   activity.type === 'fertilizer' ? 'Pag-aabono' : 'Pagaani'}
@@ -1590,11 +1591,7 @@
                 if (activity.type === 'planting') {
                     activityHTML += `- ${activity.varietyName} (${activity.area} ektarya)`;
                 } else if (activity.type === 'watering') {
-                    if (activity.isScheduled) {
-                        activityHTML += `- ${activity.details.amount} (${activity.details.method})`;
-                    } else {
-                        activityHTML += `- ${activity.amount}mm (${activity.method})`;
-                    }
+                    activityHTML += `- ${activity.amount}mm (${activity.method})`;
                 } else if (activity.type === 'fertilizer') {
                     activityHTML += `- ${activity.fertilizerName} (${activity.amount} kg/ha)`;
                 } else if (activity.type === 'harvest') {
@@ -1604,18 +1601,6 @@
                 activityHTML += `
                         </div>
                     </div>
-                `;
-                
-                // Add complete button for scheduled watering that isn't completed
-                if (activity.isScheduled && activity.scheduledType === 'watering' && !activity.completed) {
-                    activityHTML += `
-                        <button class="complete-watering" data-id="${activity.id}">
-                            <i class="fas fa-check-circle"></i>
-                        </button>
-                    `;
-                }
-                
-                activityHTML += `
                     <button class="delete-activity" data-id="${activity.id}">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -1637,20 +1622,6 @@
                         updateScheduleInfo();
                     } catch (error) {
                         alert('Error deleting activity: ' + error.message);
-                    }
-                });
-            });
-            
-            // Add event listeners to complete watering buttons
-            document.querySelectorAll('.complete-watering').forEach(button => {
-                button.addEventListener('click', async function() {
-                    const activityId = parseInt(this.getAttribute('data-id'));
-                    try {
-                        await completeWatering(activityId);
-                        await renderCalendar();
-                        await updateActivitiesList();
-                    } catch (error) {
-                        alert('Error completing watering: ' + error.message);
                     }
                 });
             });
