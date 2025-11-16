@@ -827,9 +827,24 @@
             const { db, doc, updateDoc, arrayUnion } = window.firebase;
             
             try {
-                await updateDoc(doc(db, "users", currentUser.uid), {
-                    activities: arrayUnion(activity)
-                });
+                // Check if we already have an activity of the same type on the same date
+                const existingActivities = await loadUserActivities();
+                const existingActivityIndex = existingActivities.findIndex(a => 
+                    a.date === activity.date && a.type === activity.type
+                );
+                
+                if (existingActivityIndex !== -1) {
+                    // Replace the existing activity instead of adding a new one
+                    existingActivities[existingActivityIndex] = activity;
+                    await updateDoc(doc(db, "users", currentUser.uid), {
+                        activities: existingActivities
+                    });
+                } else {
+                    // Add new activity
+                    await updateDoc(doc(db, "users", currentUser.uid), {
+                        activities: arrayUnion(activity)
+                    });
+                }
                 return true;
             } catch (error) {
                 console.error('Error saving activity:', error);
@@ -837,7 +852,7 @@
             }
         }
 
-        // Delete activity from Firebase - FIXED VERSION
+        // Delete activity from Firebase - COMPLETELY FIXED VERSION
         async function deleteActivityFromFirebase(activityId) {
             if (!firebaseReady || !currentUser) {
                 throw new Error('User not authenticated');
@@ -851,16 +866,24 @@
                     const userData = userDoc.data();
                     const activities = userData.activities || [];
                     
-                    // Find the activity to delete - fix comparison issue
-                    const activityToDelete = activities.find(a => a.id === activityId);
+                    console.log('Current activities:', activities);
+                    console.log('Looking for activity with ID:', activityId, 'Type:', typeof activityId);
+                    
+                    // Convert activityId to number for comparison
+                    const idToDelete = Number(activityId);
+                    
+                    // Find the activity to delete
+                    const activityToDelete = activities.find(a => Number(a.id) === idToDelete);
                     
                     if (!activityToDelete) {
-                        console.error('Activity not found:', activityId);
+                        console.error('Activity not found with ID:', idToDelete);
                         return false;
                     }
                     
                     // Create new array without the deleted activity
-                    const updatedActivities = activities.filter(a => a.id !== activityId);
+                    const updatedActivities = activities.filter(a => Number(a.id) !== idToDelete);
+                    
+                    console.log('Updated activities after deletion:', updatedActivities);
                     
                     // Update the document with the new activities array
                     await updateDoc(doc(db, "users", currentUser.uid), {
@@ -1244,7 +1267,7 @@
             // Add event listeners to delete buttons
             document.querySelectorAll('.delete-activity').forEach(button => {
                 button.addEventListener('click', async function() {
-                    const activityId = parseInt(this.getAttribute('data-id'));
+                    const activityId = this.getAttribute('data-id');
                     console.log('Deleting activity with ID:', activityId);
                     
                     try {
