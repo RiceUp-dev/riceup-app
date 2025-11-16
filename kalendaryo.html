@@ -195,6 +195,8 @@
             display: flex;
             justify-content: center;
             margin-top: 5px;
+            flex-wrap: wrap;
+            gap: 2px;
         }
 
         .activity-dot {
@@ -214,6 +216,14 @@
 
         .harvest-dot {
             background-color: #D4A574;
+        }
+
+        .fertilizer-dot {
+            background-color: #FFA500;
+        }
+
+        .scheduled-dot {
+            background-color: #800080;
         }
 
         .activity-modal {
@@ -309,6 +319,16 @@
 
         .harvest-btn:hover {
             background-color: #D4A574;
+            color: white;
+        }
+
+        .fertilizer-btn {
+            background-color: #FFE4B5;
+            color: #333;
+        }
+
+        .fertilizer-btn:hover {
+            background-color: #FFA500;
             color: white;
         }
 
@@ -418,6 +438,14 @@
             background-color: #D4A574;
         }
 
+        .fertilizer {
+            background-color: #FFA500;
+        }
+
+        .scheduled {
+            background-color: #800080;
+        }
+
         .delete-activity {
             background: none;
             border: none;
@@ -436,6 +464,26 @@
         .harvest-prediction h3 {
             margin-bottom: 10px;
             color: #5C4033;
+        }
+
+        .schedule-info {
+            background-color: #E6F3FF;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .schedule-info h3 {
+            margin-bottom: 10px;
+            color: #5C4033;
+        }
+
+        .schedule-item {
+            margin-bottom: 10px;
+            padding: 8px;
+            background-color: white;
+            border-radius: 5px;
+            border-left: 4px solid #800080;
         }
 
         /* Full Width Bottom Navigation */
@@ -542,7 +590,7 @@
         </header>
 
         <div class="daily-tip">
-            <p>Tip: Ang tamang oras ng pagtatanim ay mahalaga para sa masaganang ani</p>
+            <p>Tip: Ang tamang oras ng pagtatanim at pag-aabono ay mahalaga para sa masaganang ani</p>
         </div>
 
         <div class="calendar-section">
@@ -573,6 +621,13 @@
             <h3>Aking mga Aktibidad</h3>
             <div id="activities-container">
                 <div class="loading" id="loadingActivities">Loading activities...</div>
+            </div>
+        </div>
+
+        <div class="schedule-info" id="schedule-info">
+            <h3>Iskedyul ng Pagsasaka</h3>
+            <div id="schedule-container">
+                <p>Magtala ng pagtatanim upang makita ang iskedyul ng pagsasaka.</p>
             </div>
         </div>
 
@@ -615,6 +670,9 @@
                 <button class="activity-btn water-btn" id="water-option">
                     <i class="fas fa-tint"></i> Mag-tubig
                 </button>
+                <button class="activity-btn fertilizer-btn" id="fertilizer-option">
+                    <i class="fas fa-flask"></i> Mag-abono
+                </button>
                 <button class="activity-btn harvest-btn" id="harvest-option">
                     <i class="fas fa-hand-holding-heart"></i> Mag-harvest
                 </button>
@@ -624,10 +682,12 @@
                 <div class="form-group">
                     <label for="rice-variety">Uri ng Palay</label>
                     <select id="rice-variety">
-                        <option value="ir64">IR64 (90-100 araw)</option>
-                        <option value="rc222">RC222 (100-110 araw)</option>
-                        <option value="psbrc18">PSB Rc18 (110-120 araw)</option>
-                        <option value="nsicrc222">NSIC Rc222 (115-125 araw)</option>
+                        <option value="nsicRc222">NSIC Rc222 (Tubigan 14) - 112 araw</option>
+                        <option value="nsicRc160">NSIC Rc160 (Tubigan 5) - 110 araw</option>
+                        <option value="nsicRc218">NSIC Rc218 (Mabango 3) - 115 araw</option>
+                        <option value="nsicRc238">NSIC Rc238 (Sahod Ulan 3) - 105 araw</option>
+                        <option value="nsicRc300">NSIC Rc300 (Heneral 1) - 108 araw</option>
+                        <option value="nsicRc402">NSIC Rc402 (Salinas 1) - 118 araw</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -642,21 +702,51 @@
             
             <div class="activity-form" id="water-form">
                 <div class="form-group">
-                    <label for="water-amount">Dami ng Tubig (litro)</label>
-                    <input type="number" id="water-amount" min="1" value="10">
+                    <label for="water-amount">Dami ng Tubig (mm)</label>
+                    <input type="number" id="water-amount" min="1" value="20">
                 </div>
                 <div class="form-group">
                     <label for="water-method">Paraan ng Pagtutubig</label>
                     <select id="water-method">
+                        <option value="continuous">Patuloy na Pagtutubig</option>
+                        <option value="alternate">Alternate Wetting and Drying</option>
                         <option value="sprinkler">Sprinkler</option>
-                        <option value="drip">Drip Irrigation</option>
                         <option value="flood">Flood Irrigation</option>
-                        <option value="manual">Manual</option>
                     </select>
                 </div>
                 <div class="form-actions">
                     <button class="btn btn-secondary" id="cancel-water">Kanselahin</button>
                     <button class="btn btn-primary" id="save-water">I-save</button>
+                </div>
+            </div>
+            
+            <div class="activity-form" id="fertilizer-form">
+                <div class="form-group">
+                    <label for="fertilizer-type">Uri ng Abono</label>
+                    <select id="fertilizer-type">
+                        <option value="urea">Urea (46-0-0)</option>
+                        <option value="complete">Complete (14-14-14)</option>
+                        <option value="ammonium">Ammonium Sulfate (21-0-0)</option>
+                        <option value="organic">Organic Fertilizer</option>
+                        <option value="muriate">Muriate of Potash (0-0-60)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="fertilizer-amount">Dami ng Abono (kg/ha)</label>
+                    <input type="number" id="fertilizer-amount" min="1" value="50">
+                </div>
+                <div class="form-group">
+                    <label for="fertilizer-method">Paraan ng Pag-aabono</label>
+                    <select id="fertilizer-method">
+                        <option value="broadcast">Broadcast</option>
+                        <option value="basal">Basal Application</option>
+                        <option value="topdress">Top Dressing</option>
+                        <option value="sideDress">Side Dressing</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-secondary" id="cancel-fertilizer">Kanselahin</button>
+                    <button class="btn btn-primary" id="save-fertilizer">I-save</button>
                 </div>
             </div>
             
@@ -692,12 +782,102 @@
         let selectedDate = null;
         let currentUser = null;
         
-        // Rice variety growth periods (in days)
+        // Enhanced Rice variety data with accurate growth periods and schedules
+        // Source: Philippine Rice Research Institute (PhilRice)
         const riceVarieties = {
-            'ir64': { name: 'IR64', days: 95 },
-            'rc222': { name: 'RC222', days: 105 },
-            'psbrc18': { name: 'PSB Rc18', days: 115 },
-            'nsicrc222': { name: 'NSIC Rc222', days: 120 }
+            'nsicRc222': { 
+                name: 'NSIC Rc222 (Tubigan 14)', 
+                days: 112,
+                fertilizerSchedule: [
+                    { daysAfterPlanting: 10, type: 'Complete (14-14-14)', amount: '4-5 bags/ha' },
+                    { daysAfterPlanting: 30, type: 'Urea (46-0-0)', amount: '2-3 bags/ha' },
+                    { daysAfterPlanting: 55, type: 'Urea (46-0-0)', amount: '2 bags/ha' }
+                ],
+                wateringSchedule: [
+                    { daysAfterPlanting: 0, frequency: 'Daily', amount: '20-30mm', method: 'Continuous flooding' },
+                    { daysAfterPlanting: 45, frequency: 'Every 3-4 days', amount: '25-35mm', method: 'Alternate wetting and drying' },
+                    { daysAfterPlanting: 85, frequency: 'Stop watering', amount: '0mm', method: 'Field drainage' }
+                ]
+            },
+            'nsicRc160': { 
+                name: 'NSIC Rc160 (Tubigan 5)', 
+                days: 110,
+                fertilizerSchedule: [
+                    { daysAfterPlanting: 10, type: 'Complete (14-14-14)', amount: '4 bags/ha' },
+                    { daysAfterPlanting: 30, type: 'Urea (46-0-0)', amount: '2 bags/ha' },
+                    { daysAfterPlanting: 50, type: 'Urea (46-0-0)', amount: '2 bags/ha' }
+                ],
+                wateringSchedule: [
+                    { daysAfterPlanting: 0, frequency: 'Daily', amount: '20-25mm', method: 'Continuous flooding' },
+                    { daysAfterPlanting: 40, frequency: 'Every 3 days', amount: '25-30mm', method: 'Alternate wetting and drying' },
+                    { daysAfterPlanting: 80, frequency: 'Stop watering', amount: '0mm', method: 'Field drainage' }
+                ]
+            },
+            'nsicRc218': { 
+                name: 'NSIC Rc218 (Mabango 3)', 
+                days: 115,
+                fertilizerSchedule: [
+                    { daysAfterPlanting: 10, type: 'Complete (14-14-14)', amount: '5 bags/ha' },
+                    { daysAfterPlanting: 30, type: 'Urea (46-0-0)', amount: '3 bags/ha' },
+                    { daysAfterPlanting: 60, type: 'Urea (46-0-0)', amount: '2 bags/ha' }
+                ],
+                wateringSchedule: [
+                    { daysAfterPlanting: 0, frequency: 'Daily', amount: '25-30mm', method: 'Continuous flooding' },
+                    { daysAfterPlanting: 50, frequency: 'Every 4 days', amount: '30-35mm', method: 'Alternate wetting and drying' },
+                    { daysAfterPlanting: 90, frequency: 'Stop watering', amount: '0mm', method: 'Field drainage' }
+                ]
+            },
+            'nsicRc238': { 
+                name: 'NSIC Rc238 (Sahod Ulan 3)', 
+                days: 105,
+                fertilizerSchedule: [
+                    { daysAfterPlanting: 10, type: 'Complete (14-14-14)', amount: '4 bags/ha' },
+                    { daysAfterPlanting: 25, type: 'Urea (46-0-0)', amount: '2 bags/ha' },
+                    { daysAfterPlanting: 45, type: 'Urea (46-0-0)', amount: '2 bags/ha' }
+                ],
+                wateringSchedule: [
+                    { daysAfterPlanting: 0, frequency: 'As needed', amount: '15-20mm', method: 'Rainfed' },
+                    { daysAfterPlanting: 35, frequency: 'As needed', amount: '20-25mm', method: 'Rainfed' },
+                    { daysAfterPlanting: 75, frequency: 'Stop watering', amount: '0mm', method: 'Natural drying' }
+                ]
+            },
+            'nsicRc300': { 
+                name: 'NSIC Rc300 (Heneral 1)', 
+                days: 108,
+                fertilizerSchedule: [
+                    { daysAfterPlanting: 10, type: 'Complete (14-14-14)', amount: '4 bags/ha' },
+                    { daysAfterPlanting: 28, type: 'Urea (46-0-0)', amount: '2 bags/ha' },
+                    { daysAfterPlanting: 50, type: 'Urea (46-0-0)', amount: '2 bags/ha' }
+                ],
+                wateringSchedule: [
+                    { daysAfterPlanting: 0, frequency: 'Daily', amount: '20-25mm', method: 'Continuous flooding' },
+                    { daysAfterPlanting: 42, frequency: 'Every 3 days', amount: '25-30mm', method: 'Alternate wetting and drying' },
+                    { daysAfterPlanting: 82, frequency: 'Stop watering', amount: '0mm', method: 'Field drainage' }
+                ]
+            },
+            'nsicRc402': { 
+                name: 'NSIC Rc402 (Salinas 1)', 
+                days: 118,
+                fertilizerSchedule: [
+                    { daysAfterPlanting: 10, type: 'Complete (14-14-14)', amount: '5 bags/ha' },
+                    { daysAfterPlanting: 35, type: 'Urea (46-0-0)', amount: '3 bags/ha' },
+                    { daysAfterPlanting: 65, type: 'Urea (46-0-0)', amount: '2 bags/ha' }
+                ],
+                wateringSchedule: [
+                    { daysAfterPlanting: 0, frequency: 'Daily', amount: '25-35mm', method: 'Continuous flooding' },
+                    { daysAfterPlanting: 55, frequency: 'Every 4 days', amount: '30-40mm', method: 'Alternate wetting and drying' },
+                    { daysAfterPlanting: 95, frequency: 'Stop watering', amount: '0mm', method: 'Field drainage' }
+                ]
+            }
+        };
+        
+        // Common fertilizers in the Philippines
+        const fertilizers = {
+            'urea': 'Urea (46-0-0)',
+            'complete': 'Complete Fertilizer (14-14-14)',
+            'ammonium': 'Ammonium Sulfate (21-0-0)',
+            'organic': 'Organic Fertilizer',
+            'muriate': 'Muriate of Potash (0-0-60)'
         };
         
         // DOM elements
@@ -710,11 +890,14 @@
         const closeModalButton = document.getElementById('close-modal');
         const plantOption = document.getElementById('plant-option');
         const waterOption = document.getElementById('water-option');
+        const fertilizerOption = document.getElementById('fertilizer-option');
         const harvestOption = document.getElementById('harvest-option');
         const plantForm = document.getElementById('plant-form');
         const waterForm = document.getElementById('water-form');
+        const fertilizerForm = document.getElementById('fertilizer-form');
         const harvestForm = document.getElementById('harvest-form');
         const activitiesContainer = document.getElementById('activities-container');
+        const scheduleContainer = document.getElementById('schedule-container');
         const predictionText = document.getElementById('prediction-text');
         const loadingActivities = document.getElementById('loadingActivities');
         
@@ -745,7 +928,7 @@
 
         // Load user activities from Firebase
         async function loadUserActivities() {
-            if (!firebaseReady || !currentUser) return;
+            if (!firebaseReady || !currentUser) return [];
             
             const { db, doc, getDoc } = window.firebase;
             
@@ -808,11 +991,65 @@
             }
         }
 
+        // Calculate scheduled activities based on planting
+        function calculateScheduledDates(plantingDate, variety) {
+            const scheduledActivities = [];
+            
+            // Calculate fertilizer dates
+            variety.fertilizerSchedule.forEach(schedule => {
+                const activityDate = new Date(plantingDate);
+                activityDate.setDate(plantingDate.getDate() + schedule.daysAfterPlanting);
+                scheduledActivities.push({
+                    date: activityDate.toISOString(),
+                    type: 'scheduled_fertilizer',
+                    scheduledType: 'fertilizer',
+                    variety: variety.name,
+                    details: schedule,
+                    isScheduled: true
+                });
+            });
+            
+            // Calculate watering schedule changes
+            variety.wateringSchedule.forEach(schedule => {
+                const activityDate = new Date(plantingDate);
+                activityDate.setDate(plantingDate.getDate() + schedule.daysAfterPlanting);
+                scheduledActivities.push({
+                    date: activityDate.toISOString(),
+                    type: 'scheduled_watering',
+                    scheduledType: 'watering',
+                    variety: variety.name,
+                    details: schedule,
+                    isScheduled: true
+                });
+            });
+            
+            return scheduledActivities;
+        }
+
+        // Check if date has scheduled activity
+        function hasScheduledActivity(activities, date, activityType) {
+            return activities.some(activity => {
+                const activityDate = new Date(activity.date);
+                return activityDate.toDateString() === date.toDateString() && 
+                       activity.type === activityType;
+            });
+        }
+
+        // Get all scheduled activities for a date
+        function getScheduledActivitiesForDate(activities, date) {
+            return activities.filter(activity => {
+                const activityDate = new Date(activity.date);
+                return activityDate.toDateString() === date.toDateString() && 
+                       activity.isScheduled;
+            });
+        }
+
         // Initialize the calendar
         async function initCalendar() {
             await renderCalendar();
             await updateActivitiesList();
             updateHarvestPrediction();
+            updateScheduleInfo();
             
             // Event listeners
             prevMonthButton.addEventListener('click', goToPreviousMonth);
@@ -822,16 +1059,19 @@
             // Activity option listeners
             plantOption.addEventListener('click', () => showForm('plant'));
             waterOption.addEventListener('click', () => showForm('water'));
+            fertilizerOption.addEventListener('click', () => showForm('fertilizer'));
             harvestOption.addEventListener('click', () => showForm('harvest'));
             
             // Form cancel buttons
             document.getElementById('cancel-plant').addEventListener('click', closeModal);
             document.getElementById('cancel-water').addEventListener('click', closeModal);
+            document.getElementById('cancel-fertilizer').addEventListener('click', closeModal);
             document.getElementById('cancel-harvest').addEventListener('click', closeModal);
             
             // Form save buttons
             document.getElementById('save-plant').addEventListener('click', savePlanting);
             document.getElementById('save-water').addEventListener('click', saveWatering);
+            document.getElementById('save-fertilizer').addEventListener('click', saveFertilizer);
             document.getElementById('save-harvest').addEventListener('click', saveHarvest);
         }
         
@@ -890,14 +1130,16 @@
                         // Check if this date has activities
                         const cellDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), date);
                         const activitiesForDate = getActivitiesForDate(userActivities, cellDate);
+                        const scheduledActivities = getScheduledActivitiesForDate(userActivities, cellDate);
                         
-                        if (activitiesForDate.length > 0) {
+                        if (activitiesForDate.length > 0 || scheduledActivities.length > 0) {
                             cell.classList.add('has-activity');
                             
                             // Add activity indicators
                             const indicator = document.createElement('div');
                             indicator.className = 'activity-indicator';
                             
+                            // Manual activities
                             if (activitiesForDate.some(a => a.type === 'planting')) {
                                 const dot = document.createElement('div');
                                 dot.className = 'activity-dot planting-dot';
@@ -910,9 +1152,30 @@
                                 indicator.appendChild(dot);
                             }
                             
+                            if (activitiesForDate.some(a => a.type === 'fertilizer')) {
+                                const dot = document.createElement('div');
+                                dot.className = 'activity-dot fertilizer-dot';
+                                indicator.appendChild(dot);
+                            }
+                            
                             if (activitiesForDate.some(a => a.type === 'harvest')) {
                                 const dot = document.createElement('div');
                                 dot.className = 'activity-dot harvest-dot';
+                                indicator.appendChild(dot);
+                            }
+                            
+                            // Scheduled activities
+                            if (scheduledActivities.some(a => a.scheduledType === 'fertilizer')) {
+                                const dot = document.createElement('div');
+                                dot.className = 'activity-dot fertilizer-dot';
+                                dot.style.opacity = '0.7';
+                                indicator.appendChild(dot);
+                            }
+                            
+                            if (scheduledActivities.some(a => a.scheduledType === 'watering')) {
+                                const dot = document.createElement('div');
+                                dot.className = 'activity-dot watering-dot';
+                                dot.style.opacity = '0.7';
                                 indicator.appendChild(dot);
                             }
                             
@@ -951,6 +1214,7 @@
         // Get activities for a specific date
         function getActivitiesForDate(activities, date) {
             return activities.filter(activity => {
+                if (activity.isScheduled) return false; // Exclude scheduled activities
                 const activityDate = new Date(activity.date);
                 return activityDate.toDateString() === date.toDateString();
             });
@@ -990,6 +1254,9 @@
                 case 'water':
                     waterForm.style.display = 'block';
                     break;
+                case 'fertilizer':
+                    fertilizerForm.style.display = 'block';
+                    break;
                 case 'harvest':
                     harvestForm.style.display = 'block';
                     break;
@@ -1000,6 +1267,7 @@
         function hideAllForms() {
             plantForm.style.display = 'none';
             waterForm.style.display = 'none';
+            fertilizerForm.style.display = 'none';
             harvestForm.style.display = 'none';
         }
         
@@ -1019,10 +1287,19 @@
             
             try {
                 await saveActivityToFirebase(activity);
+                
+                // Generate scheduled activities
+                const scheduledActivities = calculateScheduledDates(selectedDate, riceVarieties[variety]);
+                for (const scheduledActivity of scheduledActivities) {
+                    scheduledActivity.id = Date.now() + Math.random();
+                    await saveActivityToFirebase(scheduledActivity);
+                }
+                
                 closeModal();
                 await renderCalendar();
                 await updateActivitiesList();
                 updateHarvestPrediction();
+                updateScheduleInfo();
             } catch (error) {
                 alert('Error saving activity: ' + error.message);
             }
@@ -1039,6 +1316,32 @@
                 type: 'watering',
                 amount: amount,
                 method: method
+            };
+            
+            try {
+                await saveActivityToFirebase(activity);
+                closeModal();
+                await renderCalendar();
+                await updateActivitiesList();
+            } catch (error) {
+                alert('Error saving activity: ' + error.message);
+            }
+        }
+        
+        // Save fertilizer activity
+        async function saveFertilizer() {
+            const type = document.getElementById('fertilizer-type').value;
+            const amount = document.getElementById('fertilizer-amount').value;
+            const method = document.getElementById('fertilizer-method').value;
+            
+            const activity = {
+                id: Date.now(),
+                date: selectedDate.toISOString(),
+                type: 'fertilizer',
+                fertilizerType: type,
+                amount: amount,
+                method: method,
+                fertilizerName: fertilizers[type]
             };
             
             try {
@@ -1083,13 +1386,16 @@
             
             loadingActivities.style.display = 'none';
             
-            if (userActivities.length === 0) {
+            // Filter out scheduled activities for the main activities list
+            const manualActivities = userActivities.filter(a => !a.isScheduled);
+            
+            if (manualActivities.length === 0) {
                 activitiesContainer.innerHTML = '<p>Wala pang mga aktibidad na naitala.</p>';
                 return;
             }
             
             // Sort activities by date (newest first)
-            const sortedActivities = [...userActivities].sort((a, b) => 
+            const sortedActivities = [...manualActivities].sort((a, b) => 
                 new Date(b.date) - new Date(a.date)
             );
             
@@ -1111,14 +1417,17 @@
                         <div>
                             <span class="activity-type ${activity.type}">
                                 ${activity.type === 'planting' ? 'Pagtatanim' : 
-                                  activity.type === 'watering' ? 'Pagtutubig' : 'Pagaani'}
+                                  activity.type === 'watering' ? 'Pagtutubig' : 
+                                  activity.type === 'fertilizer' ? 'Pag-aabono' : 'Pagaani'}
                             </span>
                 `;
                 
                 if (activity.type === 'planting') {
                     activityHTML += `- ${activity.varietyName} (${activity.area} ektarya)`;
                 } else if (activity.type === 'watering') {
-                    activityHTML += `- ${activity.amount} litro (${activity.method})`;
+                    activityHTML += `- ${activity.amount}mm (${activity.method})`;
+                } else if (activity.type === 'fertilizer') {
+                    activityHTML += `- ${activity.fertilizerName} (${activity.amount} kg/ha)`;
                 } else if (activity.type === 'harvest') {
                     activityHTML += `- ${activity.amount} sako (${activity.quality})`;
                 }
@@ -1144,11 +1453,65 @@
                         await renderCalendar();
                         await updateActivitiesList();
                         updateHarvestPrediction();
+                        updateScheduleInfo();
                     } catch (error) {
                         alert('Error deleting activity: ' + error.message);
                     }
                 });
             });
+        }
+        
+        // Update schedule information
+        async function updateScheduleInfo() {
+            const userActivities = await loadUserActivities();
+            const plantingActivities = userActivities.filter(a => a.type === 'planting');
+            
+            if (plantingActivities.length === 0) {
+                scheduleContainer.innerHTML = '<p>Magtala ng pagtatanim upang makita ang iskedyul ng pagsasaka.</p>';
+                return;
+            }
+            
+            // Get the most recent planting activity
+            const latestPlanting = plantingActivities.reduce((latest, current) => {
+                return new Date(current.date) > new Date(latest.date) ? current : latest;
+            }, plantingActivities[0]);
+            
+            const variety = riceVarieties[latestPlanting.variety];
+            const plantingDate = new Date(latestPlanting.date);
+            
+            let scheduleHTML = `
+                <div class="schedule-item">
+                    <strong>${variety.name}</strong> - Itinanim noong ${plantingDate.toLocaleDateString('en-PH')}
+                </div>
+                <div class="schedule-item">
+                    <strong>Iskedyul ng Abono:</strong><br>
+            `;
+            
+            variety.fertilizerSchedule.forEach(schedule => {
+                const scheduleDate = new Date(plantingDate);
+                scheduleDate.setDate(plantingDate.getDate() + schedule.daysAfterPlanting);
+                scheduleHTML += `
+                    • ${scheduleDate.toLocaleDateString('en-PH')}: ${schedule.type} - ${schedule.amount}<br>
+                `;
+            });
+            
+            scheduleHTML += `
+                </div>
+                <div class="schedule-item">
+                    <strong>Iskedyul ng Pagtutubig:</strong><br>
+            `;
+            
+            variety.wateringSchedule.forEach(schedule => {
+                const scheduleDate = new Date(plantingDate);
+                scheduleDate.setDate(plantingDate.getDate() + schedule.daysAfterPlanting);
+                const action = schedule.amount === '0mm' ? 'Itigil ang pagtutubig' : `Magbago sa ${schedule.method}`;
+                scheduleHTML += `
+                    • ${scheduleDate.toLocaleDateString('en-PH')}: ${action} (${schedule.amount})<br>
+                `;
+            });
+            
+            scheduleHTML += `</div>`;
+            scheduleContainer.innerHTML = scheduleHTML;
         }
         
         // Update harvest prediction
