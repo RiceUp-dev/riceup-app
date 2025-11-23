@@ -162,6 +162,7 @@
             min-height: 60px;
             display: flex;
             align-items: center;
+            line-height: 1.8;
         }
 
         .confidence-bar {
@@ -506,7 +507,7 @@
         // Updated pest database for binary classification
         const pestDatabase = {
             'Healthy': {
-                description: 'Walang nakikitang peste sa palay. Malusog ang mga halaman.',
+                description: 'Walang nakikitang peste sa palay.<br>Malusog ang mga halaman.',
                 treatment: [
                     'Ipagpatuloy ang magandang agricultural practices',
                     'Magpatuloy sa regular na monitoring ng palayan',
@@ -518,7 +519,7 @@
                 ]
             },
             'Pest Detected': {
-                description: 'May mga peste na nakita sa palay. Kailangan ng agarang aksyon.',
+                description: '⚠ PESTE ANG NAKITA SA PALAY!<br>Kailangan ng agarang aksyon.',
                 treatment: [
                     'Gumamit ng insecticides na safe para sa crop health (Neem-based products)',
                     'Mag-aplay ng biological controls (parasitoids, predators)',
@@ -655,7 +656,7 @@
             }
         }
 
-        // Simplified pest detection function
+        // Enhanced pest detection function with better debugging
         async function analyzePestWithModel(file) {
             // If model didn't load, use simulation
             if (!pestModel) {
@@ -676,7 +677,7 @@
                 
                 console.log('Original image dimensions:', img.naturalWidth, 'x', img.naturalHeight);
                 
-                // Preprocess image - try standard VGG16 preprocessing
+                // Try different preprocessing methods to find what works
                 const tensor = tf.browser.fromPixels(img)
                     .resizeNearestNeighbor([224, 224])
                     .toFloat()
@@ -684,24 +685,56 @@
                 
                 console.log('Tensor shape:', tensor.shape);
                 
-                // Try standard normalization (0-1) - most common
-                const preprocessed = tensor.div(255.0);
+                // Test multiple preprocessing methods
+                let finalResults;
                 
-                console.log('Making prediction...');
+                // Method 1: Standard normalization (0-1)
+                const preprocessed1 = tensor.div(255.0);
+                const prediction1 = pestModel.predict(preprocessed1);
+                const results1 = await prediction1.data();
+                console.log('Method 1 - Standard (0-1):', results1);
                 
-                // Make prediction
-                const prediction = pestModel.predict(preprocessed);
-                const results = await prediction.data();
+                // Method 2: No normalization (0-255)
+                const prediction2 = pestModel.predict(tensor);
+                const results2 = await prediction2.data();
+                console.log('Method 2 - No normalization (0-255):', results2);
                 
-                console.log('Raw model output:', results);
+                // Method 3: VGG preprocessing
+                const preprocessed3 = tensor.div(255.0)
+                    .sub(tf.tensor1d([0.485, 0.456, 0.406]))
+                    .div(tf.tensor1d([0.229, 0.224, 0.225]));
+                const prediction3 = pestModel.predict(preprocessed3);
+                const results3 = await prediction3.data();
+                console.log('Method 3 - VGG preprocessing:', results3);
+                
+                // Choose the method that gives the most varied results (not all zeros or ones)
+                const variance1 = Math.max(...results1) - Math.min(...results1);
+                const variance2 = Math.max(...results2) - Math.min(...results2);
+                const variance3 = Math.max(...results3) - Math.min(...results3);
+                
+                console.log('Variances:', {variance1, variance2, variance3});
+                
+                if (variance2 > variance1 && variance2 > variance3) {
+                    console.log('Using Method 2 (no normalization)');
+                    finalResults = results2;
+                } else if (variance3 > variance1 && variance3 > variance2) {
+                    console.log('Using Method 3 (VGG preprocessing)');
+                    finalResults = results3;
+                } else {
+                    console.log('Using Method 1 (standard normalization)');
+                    finalResults = results1;
+                }
                 
                 // Clean up
                 tensor.dispose();
-                preprocessed.dispose();
-                if (prediction.dispose) prediction.dispose();
+                preprocessed1.dispose();
+                preprocessed3.dispose();
+                prediction1.dispose();
+                prediction2.dispose();
+                prediction3.dispose();
                 URL.revokeObjectURL(img.src);
                 
-                return processBinaryPestResults(results);
+                return processBinaryPestResults(finalResults);
                 
             } catch (error) {
                 console.error('Error in pest detection:', error);
@@ -709,9 +742,14 @@
             }
         }
 
-        // Process binary pest results
+        // Process binary pest results with enhanced debugging
         function processBinaryPestResults(predictions) {
-            console.log('Model predictions:', predictions);
+            console.log('=== MODEL PREDICTION ANALYSIS ===');
+            console.log('Raw predictions:', predictions);
+            console.log('Array length:', predictions.length);
+            console.log('Sum of predictions:', predictions.reduce((a, b) => a + b, 0));
+            console.log('Max prediction:', Math.max(...predictions));
+            console.log('Min prediction:', Math.min(...predictions));
             
             let hasPest;
             let confidence;
@@ -719,20 +757,26 @@
             // Handle different output formats
             if (predictions.length === 1) {
                 // Single output (sigmoid)
+                console.log('Interpreting as single output (sigmoid)');
                 hasPest = predictions[0] > 0.5;
                 confidence = hasPest ? predictions[0] * 100 : (1 - predictions[0]) * 100;
             } else {
                 // Multiple outputs, use the highest confidence
+                console.log('Interpreting as multiple outputs (softmax)');
                 const maxConfidence = Math.max(...predictions);
                 const maxIndex = predictions.indexOf(maxConfidence);
                 hasPest = maxIndex !== 0; // Assuming index 0 is healthy
                 confidence = maxConfidence * 100;
+                
+                console.log(`Max index: ${maxIndex}, Max confidence: ${maxConfidence}`);
             }
             
             confidence = Math.min(100, Math.max(0, confidence)); // Clamp between 0-100
             confidence = parseFloat(confidence.toFixed(1));
             
-            console.log(`Pest: ${hasPest ? 'DETECTED' : 'HEALTHY'}, Confidence: ${confidence}%`);
+            console.log(`FINAL DECISION: ${hasPest ? 'PEST DETECTED' : 'HEALTHY'}`);
+            console.log(`Confidence: ${confidence}%`);
+            console.log('================================');
             
             return {
                 pest: hasPest ? 'Pest Detected' : 'Healthy',
@@ -832,16 +876,16 @@
             
             const pestInfo = pestDatabase[prediction.pest];
             
-            // Display main result
+            // Display main result with better formatting
             if (!prediction.hasPest) {
                 pestResult.innerHTML = `
                     <strong style="color: #6B8E23;">✓ Walang Peste</strong><br>
-                    <em>${pestInfo.description}</em>
+                    <span style="color: #5C4033;">${pestInfo.description}</span>
                 `;
             } else {
                 pestResult.innerHTML = `
                     <strong style="color: #ff6b6b;">⚠ May Peste na Nakita</strong><br>
-                    <em>${pestInfo.description}</em>
+                    <span style="color: #d32f2f; font-weight: bold;">${pestInfo.description}</span>
                 `;
             }
             
