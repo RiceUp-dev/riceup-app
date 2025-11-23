@@ -553,15 +553,16 @@
                 modelStatus.innerHTML = 'Loading AI model...';
                 console.log('Loading pest detection model...');
                 
-                // Define the model URL
-                const modelUrl = './models/pest_model/model.json';
+                // Define the model URL - use absolute path for GitHub Pages
+                const modelUrl = 'https://riceup-dev.github.io/riceup-app/models/pest_model/model.json';
                 console.log('Model URL:', modelUrl);
                 
-                // Try loading as LayersModel
+                // Load the model
                 pestModel = await tf.loadLayersModel(modelUrl);
                 modelLoaded = true;
                 
                 console.log('✅ Pest model loaded successfully!');
+                console.log('Model:', pestModel);
                 console.log('Model input shape:', pestModel.inputs[0].shape);
                 console.log('Model output shape:', pestModel.outputs[0].shape);
                 
@@ -666,7 +667,7 @@
             }
         }
 
-        // Pest detection function
+        // Pest detection function for EfficientNetB0
         async function analyzePestWithModel(file) {
             // If model didn't load, use simulation
             if (!modelLoaded || !pestModel) {
@@ -687,28 +688,24 @@
                 
                 console.log('Original image dimensions:', img.naturalWidth, 'x', img.naturalHeight);
                 
-                // Preprocess image for model
+                // Preprocess image for EfficientNetB0
+                // The model has built-in preprocessing (Rescaling layer), so we just need to resize
                 const tensor = tf.browser.fromPixels(img)
-                    .resizeNearestNeighbor([224, 224]) // Standard VGG16 size
+                    .resizeNearestNeighbor([224, 224]) // EfficientNetB0 input size
                     .toFloat()
                     .expandDims(0);
                 
                 console.log('Tensor shape:', tensor.shape);
+                console.log('Making prediction with EfficientNetB0...');
                 
-                // Normalize to [0, 1] - most common preprocessing
-                const preprocessed = tensor.div(255.0);
-                
-                console.log('Making prediction...');
-                
-                // Make prediction
-                const prediction = pestModel.predict(preprocessed);
+                // Make prediction - the model has built-in preprocessing
+                const prediction = pestModel.predict(tensor);
                 const results = await prediction.data();
                 
                 console.log('Raw model output:', results);
                 
                 // Clean up
                 tensor.dispose();
-                preprocessed.dispose();
                 prediction.dispose();
                 URL.revokeObjectURL(img.src);
                 
@@ -722,7 +719,12 @@
 
         // Process pest results
         function processBinaryPestResults(predictions) {
-            console.log('Model predictions:', predictions);
+            console.log('=== MODEL PREDICTION ANALYSIS ===');
+            console.log('Raw predictions:', predictions);
+            console.log('Array length:', predictions.length);
+            console.log('Sum of predictions:', predictions.reduce((a, b) => a + b, 0));
+            console.log('Max prediction:', Math.max(...predictions));
+            console.log('Min prediction:', Math.min(...predictions));
             
             let hasPest;
             let confidence;
@@ -730,20 +732,25 @@
             // Handle different output formats
             if (predictions.length === 1) {
                 // Single output (sigmoid) - value is probability of pest
+                console.log('Interpreting as single output (sigmoid)');
                 hasPest = predictions[0] > 0.5;
                 confidence = hasPest ? predictions[0] * 100 : (1 - predictions[0]) * 100;
             } else {
                 // Multiple outputs - use highest confidence
+                console.log('Interpreting as multiple outputs (softmax)');
                 const maxConfidence = Math.max(...predictions);
                 const maxIndex = predictions.indexOf(maxConfidence);
                 hasPest = maxIndex !== 0; // Assuming index 0 is healthy
                 confidence = maxConfidence * 100;
+                console.log(`Max index: ${maxIndex}, Max confidence: ${maxConfidence}`);
             }
             
             confidence = Math.min(100, Math.max(0, confidence));
             confidence = parseFloat(confidence.toFixed(1));
             
-            console.log(`Pest detected: ${hasPest}, Confidence: ${confidence}%`);
+            console.log(`FINAL DECISION: ${hasPest ? 'PEST DETECTED' : 'HEALTHY'}`);
+            console.log(`Confidence: ${confidence}%`);
+            console.log('================================');
             
             return {
                 pest: hasPest ? 'Pest Detected' : 'Healthy',
