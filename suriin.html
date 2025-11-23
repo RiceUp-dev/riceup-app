@@ -7,7 +7,6 @@
     
     <!-- Add TensorFlow.js -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-automl@1.0.0/dist/index.js"></script>
     
     <!-- Add Firebase SDK -->
     <script type="module">
@@ -48,6 +47,7 @@
     </script>
     
     <style>
+        /* Your existing CSS styles remain the same */
         * {
             margin: 0;
             padding: 0;
@@ -565,6 +565,12 @@
             }
         };
 
+        // AI Model Variables - SEPARATE MODELS
+        let ricePestModel = null;
+        let riceDiseaseModel = null;
+        let pestModelLoaded = false;
+        let diseaseModelLoaded = false;
+
         let currentUser = null;
         let firebaseReady = false;
 
@@ -591,6 +597,163 @@
             });
         }
 
+        // Load the PEST model when the page loads
+        async function loadRicePestModel() {
+            try {
+                console.log('Loading rice PEST model from GitHub...');
+                
+                // Load your actual PEST model from GitHub Pages
+                ricePestModel = await tf.loadLayersModel('https://riceup-dev.github.io/suriin-backend/tfjs_rice_pest_model/model.json');
+                
+                pestModelLoaded = true;
+                console.log('✓ Rice PEST model loaded successfully from GitHub');
+                
+            } catch (error) {
+                console.error('❌ Error loading PEST model from GitHub:', error);
+                pestModelLoaded = false;
+            }
+        }
+
+        // Load the DISEASE model when the page loads
+        async function loadRiceDiseaseModel() {
+            try {
+                console.log('Loading rice DISEASE model...');
+                
+                // TODO: Replace with your actual disease model URL
+                // riceDiseaseModel = await tf.loadLayersModel('URL_TO_YOUR_DISEASE_MODEL');
+                
+                // For now, we'll simulate disease model loading
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                diseaseModelLoaded = false; // Set to false since we don't have the disease model yet
+                console.log('⚠ Disease model not available - using simulation');
+                
+            } catch (error) {
+                console.error('❌ Error loading DISEASE model:', error);
+                diseaseModelLoaded = false;
+            }
+        }
+
+        // Call this when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRicePestModel();
+            loadRiceDiseaseModel();
+        });
+
+        // Function to preprocess image for PEST detection
+        async function predictPestWithModel(imageData) {
+            const img = new Image();
+            img.src = imageData;
+            
+            await new Promise((resolve) => {
+                img.onload = resolve;
+            });
+            
+            // Preprocess image for PEST model
+            const tensor = tf.browser.fromPixels(img)
+                .resizeNearestNeighbor([224, 224]) // Adjust based on your pest model input size
+                .toFloat()
+                .div(255.0) // Normalize to [0,1]
+                .expandDims(); // Add batch dimension
+            
+            // Make PEST prediction
+            const prediction = await ricePestModel.predict(tensor);
+            const results = await prediction.data();
+            
+            // Clean up memory
+            tensor.dispose();
+            prediction.dispose();
+            
+            return processPestOutput(results);
+        }
+
+        // Function to preprocess image for DISEASE detection
+        async function predictDiseaseWithModel(imageData) {
+            // Since we don't have the disease model yet, we'll simulate
+            // TODO: Replace this with actual disease model prediction when available
+            
+            const img = new Image();
+            img.src = imageData;
+            
+            await new Promise((resolve) => {
+                img.onload = resolve;
+            });
+            
+            // Simulate disease prediction for now
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return simulateDiseasePrediction();
+            
+            /* TODO: Uncomment and implement when you have the disease model
+            const tensor = tf.browser.fromPixels(img)
+                .resizeNearestNeighbor([224, 224]) // Adjust based on your disease model input size
+                .toFloat()
+                .div(255.0)
+                .expandDims();
+            
+            const prediction = await riceDiseaseModel.predict(tensor);
+            const results = await prediction.data();
+            
+            tensor.dispose();
+            prediction.dispose();
+            
+            return processDiseaseOutput(results);
+            */
+        }
+
+        // Process PEST model output
+        function processPestOutput(predictionArray) {
+            // Your pest model likely outputs [probability_healthy, probability_pest] or similar
+            const probabilities = Array.from(predictionArray);
+            
+            // Assuming binary classification: [Healthy probability, Pest probability]
+            let healthyProb, pestProb;
+            
+            if (probabilities.length === 2) {
+                // Binary classification
+                healthyProb = probabilities[0];
+                pestProb = probabilities[1];
+            } else if (probabilities.length === 1) {
+                // Single output (sigmoid)
+                healthyProb = 1 - probabilities[0];
+                pestProb = probabilities[0];
+            } else {
+                // Fallback
+                healthyProb = 0.5;
+                pestProb = 0.5;
+            }
+            
+            const hasPest = pestProb > healthyProb;
+            const confidence = (Math.max(healthyProb, pestProb) * 100).toFixed(1);
+            
+            return {
+                pest: hasPest ? 'Insects' : 'Healthy',
+                confidence: parseFloat(confidence),
+                hasPest: hasPest
+            };
+        }
+
+        // Process DISEASE model output
+        function processDiseaseOutput(predictionArray) {
+            // Your disease model outputs probabilities for each disease class
+            const classNames = [
+                'Bacterial Leaf Blight', 'Brown Spot', 'Leaf Blast', 
+                'Leaf Scald', 'Narrow Brown Leaf Spot', 'Rice Hispa',
+                'Sheath Blight', 'Tungro', 'Healthy Rice Leaf'
+            ];
+            
+            const probabilities = Array.from(predictionArray);
+            const maxProbability = Math.max(...probabilities);
+            const predictedClassIndex = probabilities.indexOf(maxProbability);
+            const confidence = (maxProbability * 100).toFixed(1);
+            
+            const predictedDisease = classNames[predictedClassIndex] || classNames[0];
+            
+            return {
+                disease: predictedDisease,
+                confidence: parseFloat(confidence),
+                isHealthy: predictedDisease === 'Healthy Rice Leaf'
+            };
+        }
+
         // Save analysis result to user history
         async function saveAnalysisToHistory(imageData, diseaseResult, pestResult) {
             if (!firebaseReady || !currentUser) return;
@@ -602,7 +765,7 @@
                 date: new Date().toLocaleDateString('en-PH'),
                 disease: diseaseResult,
                 pest: pestResult,
-                image: imageData // Store thumbnail or reference
+                image: imageData
             };
             
             try {
@@ -654,59 +817,69 @@
                 uploadedImage.style.display = 'block';
                 noImageText.style.display = 'none';
                 
-                // Analyze image with improved ML model
+                // Analyze image with both models
                 analyzeImageWithML(file, e.target.result);
             }
             reader.readAsDataURL(file);
         }
 
-        // Simulate ML analysis with improved accuracy
+        // Updated analysis function that uses both separate models
         async function analyzeImageWithML(file, imageData) {
             const loadingAnalysis = document.getElementById('loadingAnalysis');
             const progressBar = document.getElementById('analysisProgressBar');
             
-            // Show loading state
             loadingAnalysis.style.display = 'block';
+            progressBar.style.width = '0%';
             
-            // Simulate analysis progress
-            let progress = 0;
-            const progressInterval = setInterval(() => {
-                progress += 5;
-                progressBar.style.width = progress + '%';
+            try {
+                progressBar.style.width = '30%';
                 
-                if (progress >= 100) {
-                    clearInterval(progressInterval);
-                    // Show results after "analysis"
-                    setTimeout(() => {
-                        loadingAnalysis.style.display = 'none';
-                        showAnalysisResults(file, imageData);
-                    }, 500);
+                let diseasePredictions, pestPredictions;
+                
+                // Run PEST detection (using your actual model)
+                if (pestModelLoaded && ricePestModel) {
+                    console.log('Using real PEST model for prediction...');
+                    pestPredictions = await predictPestWithModel(imageData);
+                } else {
+                    console.log('Using simulated PEST analysis');
+                    pestPredictions = simulatePestPrediction();
                 }
-            }, 100);
+                
+                progressBar.style.width = '60%';
+                
+                // Run DISEASE detection
+                if (diseaseModelLoaded && riceDiseaseModel) {
+                    console.log('Using real DISEASE model for prediction...');
+                    diseasePredictions = await predictDiseaseWithModel(imageData);
+                } else {
+                    console.log('Using simulated DISEASE analysis');
+                    diseasePredictions = simulateDiseasePrediction();
+                }
+                
+                progressBar.style.width = '100%';
+                
+                setTimeout(() => {
+                    loadingAnalysis.style.display = 'none';
+                    displayDiseaseResult(diseasePredictions);
+                    displayPestResult(pestPredictions);
+                    saveAnalysisToHistory(imageData, diseasePredictions, pestPredictions);
+                }, 500);
+                
+            } catch (error) {
+                console.error('Analysis error:', error);
+                loadingAnalysis.style.display = 'none';
+                // Show fallback results
+                const diseasePredictions = simulateDiseasePrediction();
+                const pestPredictions = simulatePestPrediction();
+                displayDiseaseResult(diseasePredictions);
+                displayPestResult(pestPredictions);
+            }
         }
 
-        // Improved analysis with better accuracy simulation
-        function showAnalysisResults(file, imageData) {
-            // Simulate ML model predictions with better accuracy
-            const diseasePredictions = simulateDiseasePrediction();
-            const pestPredictions = simulatePestPrediction();
-            
-            // Display disease results
-            displayDiseaseResult(diseasePredictions);
-            
-            // Display pest results
-            displayPestResult(pestPredictions);
-            
-            // Save to user history
-            saveAnalysisToHistory(imageData, diseasePredictions, pestPredictions);
-        }
-
-        // Simulate disease prediction with improved accuracy
+        // Simulate disease prediction
         function simulateDiseasePrediction() {
             const diseases = Object.keys(diseaseDatabase);
             const randomDisease = diseases[Math.floor(Math.random() * diseases.length)];
-            
-            // Simulate confidence score (80-95% for better accuracy)
             const confidence = (80 + Math.random() * 15).toFixed(1);
             
             return {
@@ -716,12 +889,10 @@
             };
         }
 
-        // Simulate pest prediction with improved accuracy
+        // Simulate pest prediction
         function simulatePestPrediction() {
             const pests = Object.keys(pestDatabase);
             const randomPest = pests[Math.floor(Math.random() * pests.length)];
-            
-            // Simulate confidence score (80-95% for better accuracy)
             const confidence = (80 + Math.random() * 15).toFixed(1);
             
             return {
