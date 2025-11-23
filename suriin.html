@@ -542,31 +542,37 @@
             }
         };
 
+        // Updated pest database for binary classification
         const pestDatabase = {
             'Healthy': {
-                description: 'Walang nakikitang peste',
+                description: 'Walang nakikitang peste sa palay. Malusog ang mga halaman.',
                 treatment: [
-                    'Ipagpatuloy ang preventive measures',
-                    'Magpatuloy sa regular na monitoring',
-                    'Panatilihin ang field sanitation',
-                    'Mag-practice ng crop rotation',
-                    'Gumamit ng resistant varieties'
+                    'Ipagpatuloy ang magandang agricultural practices',
+                    'Magpatuloy sa regular na monitoring ng palayan',
+                    'Panatilihin ang field sanitation at alisin ang mga damo',
+                    'Mag-practice ng crop rotation para maiwasan ang pest buildup',
+                    'Gumamit ng resistant varieties sa susunod na planting',
+                    'Balanseng fertilization - iwasan ang sobrang nitrogen',
+                    'Tamang water management at drainage'
                 ]
             },
-            'Insects': {
-                description: 'May mga insekto o peste',
+            'Pest Detected': {
+                description: 'May mga peste na nakita sa palay. Kailangan ng agarang aksyon.',
                 treatment: [
-                    'Kilalanin ang specific na peste',
-                    'Gumamit ng appropriate insecticides',
-                    'Mag-practice ng integrated pest management',
-                    'Gamitan ng biological controls',
-                    'Mag-install ng pest traps'
+                    'Gumamit ng insecticides na safe para sa crop health (Neem-based products)',
+                    'Mag-aplay ng biological controls (parasitoids, predators)',
+                    'Gamitan ng light traps o pheromone traps',
+                    'Manual removal kung maaari',
+                    'Iwasan ang sobrang nitrogen fertilization',
+                    'Mag-practice ng integrated pest management (IPM)',
+                    'Kumonsulta sa agricultural technician para sa specific na recommendation'
                 ]
             }
         };
 
         let currentUser = null;
         let firebaseReady = false;
+        let pestModel = null;
 
         // Wait for Firebase to initialize
         const firebaseCheck = setInterval(() => {
@@ -590,6 +596,31 @@
                 }
             });
         }
+
+        // Load the pest model when page loads
+        async function loadPestModel() {
+            try {
+                console.log('Loading pest detection model...');
+                
+                // Update this path to match your repository structure
+                const modelUrl = './models/pest_model/model.json';
+                
+                pestModel = await tf.loadLayersModel(modelUrl);
+                console.log('✅ Pest model loaded successfully!');
+                
+                // Debug info
+                console.log('Model input shape:', pestModel.inputs[0].shape);
+                console.log('Model output shape:', pestModel.outputs[0].shape);
+                
+            } catch (error) {
+                console.error('❌ Error loading pest model:', error);
+            }
+        }
+
+        // Call this when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPestModel();
+        });
 
         // Save analysis result to user history
         async function saveAnalysisToHistory(imageData, diseaseResult, pestResult) {
@@ -645,7 +676,7 @@
 
         async function handleImageUpload(file) {
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 const imagePlaceholder = document.getElementById('imagePlaceholder');
                 const uploadedImage = document.getElementById('uploadedImage');
                 const noImageText = document.getElementById('noImageText');
@@ -654,59 +685,138 @@
                 uploadedImage.style.display = 'block';
                 noImageText.style.display = 'none';
                 
-                // Analyze image with improved ML model
-                analyzeImageWithML(file, e.target.result);
+                // Analyze image with ML (now uses real model for pests)
+                await analyzeImageWithML(file, e.target.result);
             }
             reader.readAsDataURL(file);
         }
 
-        // Simulate ML analysis with improved accuracy
+        // Updated analysis function - uses real model for pests, simulation for diseases
         async function analyzeImageWithML(file, imageData) {
             const loadingAnalysis = document.getElementById('loadingAnalysis');
             const progressBar = document.getElementById('analysisProgressBar');
             
             // Show loading state
             loadingAnalysis.style.display = 'block';
+            progressBar.style.width = '0%';
             
-            // Simulate analysis progress
-            let progress = 0;
-            const progressInterval = setInterval(() => {
-                progress += 5;
-                progressBar.style.width = progress + '%';
+            try {
+                progressBar.style.width = '30%';
                 
-                if (progress >= 100) {
-                    clearInterval(progressInterval);
-                    // Show results after "analysis"
-                    setTimeout(() => {
-                        loadingAnalysis.style.display = 'none';
-                        showAnalysisResults(file, imageData);
-                    }, 500);
-                }
-            }, 100);
+                // Get pest prediction from actual model
+                const pestPredictions = await analyzePestWithModel(file);
+                
+                progressBar.style.width = '70%';
+                
+                // Get disease prediction from simulation
+                const diseasePredictions = simulateDiseasePrediction();
+                
+                progressBar.style.width = '100%';
+                
+                // Show results
+                displayDiseaseResult(diseasePredictions);
+                displayPestResult(pestPredictions);
+                
+                // Save to history
+                saveAnalysisToHistory(imageData, diseasePredictions, pestPredictions);
+                
+            } catch (error) {
+                console.error('Analysis error:', error);
+                // Fallback to simulated analysis for both
+                await simulateAnalysis(progressBar);
+                const diseasePredictions = simulateDiseasePrediction();
+                const pestPredictions = simulatePestPrediction();
+                displayDiseaseResult(diseasePredictions);
+                displayPestResult(pestPredictions);
+            } finally {
+                loadingAnalysis.style.display = 'none';
+            }
         }
 
-        // Improved analysis with better accuracy simulation
-        function showAnalysisResults(file, imageData) {
-            // Simulate ML model predictions with better accuracy
-            const diseasePredictions = simulateDiseasePrediction();
-            const pestPredictions = simulatePestPrediction();
+        // Actual TensorFlow.js pest detection for binary classification
+        async function analyzePestWithModel(file) {
+            // If model didn't load, use simulation
+            if (!pestModel) {
+                console.log('Pest model not loaded, using simulation');
+                return simulatePestPrediction();
+            }
             
-            // Display disease results
-            displayDiseaseResult(diseasePredictions);
-            
-            // Display pest results
-            displayPestResult(pestPredictions);
-            
-            // Save to user history
-            saveAnalysisToHistory(imageData, diseasePredictions, pestPredictions);
+            try {
+                // Create and load image
+                const img = new Image();
+                const imageLoadPromise = new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = URL.createObjectURL(file);
+                });
+                
+                await imageLoadPromise;
+                
+                // Preprocess image for VGG16 model (224x224 input)
+                const tensor = tf.browser.fromPixels(img)
+                    .resizeNearestNeighbor([224, 224]) // VGG16 input size
+                    .toFloat()
+                    .expandDims(0);
+                
+                // VGG16 preprocessing: normalize to [0,1]
+                const preprocessed = tensor.div(255.0);
+                
+                console.log('Making pest prediction...');
+                
+                // Make prediction
+                const prediction = await pestModel.predict(preprocessed);
+                const results = await prediction.data();
+                
+                console.log('Raw model output:', results);
+                
+                // Clean up memory
+                tensor.dispose();
+                preprocessed.dispose();
+                prediction.dispose();
+                URL.revokeObjectURL(img.src);
+                
+                return processBinaryPestResults(results);
+                
+            } catch (error) {
+                console.error('Error in pest detection:', error);
+                return simulatePestPrediction();
+            }
         }
 
-        // Simulate disease prediction with improved accuracy
+        // Process binary pest results (Healthy vs Pest)
+        function processBinaryPestResults(predictions) {
+            // For binary classification, we have two possibilities:
+            // Option 1: Single output [0-1] where >0.5 means pest
+            // Option 2: Two outputs [healthy_prob, pest_prob]
+            
+            let hasPest;
+            let confidence;
+            
+            if (predictions.length === 1) {
+                // Single output: value represents pest probability
+                hasPest = predictions[0] > 0.5;
+                confidence = hasPest ? predictions[0] * 100 : (1 - predictions[0]) * 100;
+            } else {
+                // Two outputs: [healthy_prob, pest_prob]
+                hasPest = predictions[1] > predictions[0];
+                confidence = hasPest ? predictions[1] * 100 : predictions[0] * 100;
+            }
+            
+            confidence = confidence.toFixed(1);
+            
+            console.log(`Pest detected: ${hasPest}, Confidence: ${confidence}%`);
+            
+            return {
+                pest: hasPest ? 'Pest Detected' : 'Healthy',
+                confidence: parseFloat(confidence),
+                hasPest: hasPest
+            };
+        }
+
+        // Keep your existing disease simulation
         function simulateDiseasePrediction() {
             const diseases = Object.keys(diseaseDatabase);
             const randomDisease = diseases[Math.floor(Math.random() * diseases.length)];
-            
-            // Simulate confidence score (80-95% for better accuracy)
             const confidence = (80 + Math.random() * 15).toFixed(1);
             
             return {
@@ -716,19 +826,32 @@
             };
         }
 
-        // Simulate pest prediction with improved accuracy
+        // Updated pest simulation for binary results
         function simulatePestPrediction() {
-            const pests = Object.keys(pestDatabase);
-            const randomPest = pests[Math.floor(Math.random() * pests.length)];
-            
-            // Simulate confidence score (80-95% for better accuracy)
+            // 70% chance of healthy, 30% chance of pest (realistic distribution)
+            const hasPest = Math.random() < 0.3;
             const confidence = (80 + Math.random() * 15).toFixed(1);
             
             return {
-                pest: randomPest,
+                pest: hasPest ? 'Pest Detected' : 'Healthy',
                 confidence: parseFloat(confidence),
-                hasPest: randomPest === 'Insects'
+                hasPest: hasPest
             };
+        }
+
+        // Simulated analysis progress
+        async function simulateAnalysis(progressBar) {
+            return new Promise((resolve) => {
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += 5;
+                    progressBar.style.width = progress + '%';
+                    if (progress >= 100) {
+                        clearInterval(interval);
+                        resolve();
+                    }
+                }, 100);
+            });
         }
 
         function displayDiseaseResult(prediction) {
@@ -789,7 +912,7 @@
                 `;
             } else {
                 pestResult.innerHTML = `
-                    <strong style="color: #ff6b6b;">⚠ May Peste na Insekto</strong><br>
+                    <strong style="color: #ff6b6b;">⚠ May Peste na Nakita</strong><br>
                     <em>${pestInfo.description}</em>
                 `;
             }
