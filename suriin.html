@@ -5,47 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RiceUp - Suriin ang Palay</title>
     
-    <!-- Add TensorFlow.js -->
+    <!-- Add TensorFlow.js only -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-automl@1.0.0/dist/index.js"></script>
-    
-    <!-- Add Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyAzj34ncOS8oilRwAvquFHHaznwd0JRkZY",
-            authDomain: "riceup-8ac2f.firebaseapp.com",
-            projectId: "riceup-8ac2f",
-            storageBucket: "riceup-8ac2f.firebasestorage.app",
-            messagingSenderId: "1011803681191",
-            appId: "1:1011803681191:web:c1bc0c73d10b5897aac682",
-            measurementId: "G-KGWR4CWE7D"
-        };
-
-        try {
-            const app = initializeApp(firebaseConfig);
-            const auth = getAuth(app);
-            const db = getFirestore(app);
-
-            window.firebase = {
-                app,
-                auth,
-                db,
-                onAuthStateChanged,
-                signOut,
-                doc,
-                updateDoc,
-                arrayUnion,
-                initialized: true
-            };
-        } catch (error) {
-            console.error('Firebase initialization error:', error);
-            window.firebase = { initialized: false, error: error.message };
-        }
-    </script>
     
     <style>
         * {
@@ -570,32 +531,7 @@
             }
         };
 
-        let currentUser = null;
-        let firebaseReady = false;
         let pestModel = null;
-
-        // Wait for Firebase to initialize
-        const firebaseCheck = setInterval(() => {
-            if (window.firebase && window.firebase.initialized) {
-                clearInterval(firebaseCheck);
-                firebaseReady = true;
-                initializeApp();
-            }
-        }, 100);
-
-        async function initializeApp() {
-            const { auth, onAuthStateChanged } = window.firebase;
-            
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    currentUser = user;
-                    console.log('User authenticated for image analysis');
-                } else {
-                    // Redirect to login if not authenticated
-                    window.location.href = '/';
-                }
-            });
-        }
 
         // Load the pest model when page loads
         async function loadPestModel() {
@@ -605,22 +541,27 @@
                 // Update this path to match your repository structure
                 const modelUrl = './models/pest_model/model.json';
                 
-                pestModel = await tf.loadLayersModel(modelUrl);
+                pestModel = await tf.loadGraphModel(modelUrl);
                 console.log('✅ Pest model loaded successfully!');
                 
                 // Debug info
-                console.log('Model input shape:', pestModel.inputs[0].shape);
-                console.log('Model output shape:', pestModel.outputs[0].shape);
-                console.log('Number of layers:', pestModel.layers.length);
-                
-                // Test with a dummy input
-                const dummyInput = tf.ones([1, 224, 224, 3]);
-                const dummyOutput = await pestModel.predict(dummyInput).data();
-                console.log('Dummy test output:', dummyOutput);
-                dummyInput.dispose();
+                console.log('Model inputs:', pestModel.inputs);
+                console.log('Model outputs:', pestModel.outputs);
                 
             } catch (error) {
-                console.error('❌ Error loading pest model:', error);
+                console.error('❌ Error loading pest model with GraphModel:', error);
+                console.log('Trying alternative model loading method...');
+                
+                // Try alternative loading method
+                try {
+                    pestModel = await tf.loadLayersModel(modelUrl);
+                    console.log('✅ Pest model loaded successfully with Layers API!');
+                    console.log('Model input shape:', pestModel.inputs[0].shape);
+                    console.log('Model output shape:', pestModel.outputs[0].shape);
+                } catch (error2) {
+                    console.error('❌ Both model loading methods failed:', error2);
+                    console.log('Will use simulation mode for pest detection');
+                }
             }
         }
 
@@ -628,29 +569,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             loadPestModel();
         });
-
-        // Save analysis result to user history
-        async function saveAnalysisToHistory(imageData, diseaseResult, pestResult) {
-            if (!firebaseReady || !currentUser) return;
-            
-            const { db, doc, updateDoc, arrayUnion } = window.firebase;
-            
-            const analysisRecord = {
-                timestamp: new Date().toISOString(),
-                date: new Date().toLocaleDateString('en-PH'),
-                disease: diseaseResult,
-                pest: pestResult,
-                image: imageData // Store thumbnail or reference
-            };
-            
-            try {
-                await updateDoc(doc(db, "users", currentUser.uid), {
-                    analysisHistory: arrayUnion(analysisRecord)
-                });
-            } catch (error) {
-                console.error('Error saving analysis history:', error);
-            }
-        }
 
         function openCamera() {
             const fileInput = document.createElement('input');
@@ -724,9 +642,6 @@
                 displayDiseaseResult(diseasePredictions);
                 displayPestResult(pestPredictions);
                 
-                // Save to history
-                saveAnalysisToHistory(imageData, diseasePredictions, pestPredictions);
-                
             } catch (error) {
                 console.error('Analysis error:', error);
                 // Fallback to simulated analysis for both
@@ -740,7 +655,7 @@
             }
         }
 
-        // Debug version of pest detection with multiple preprocessing methods
+        // Simplified pest detection function
         async function analyzePestWithModel(file) {
             // If model didn't load, use simulation
             if (!pestModel) {
@@ -761,53 +676,32 @@
                 
                 console.log('Original image dimensions:', img.naturalWidth, 'x', img.naturalHeight);
                 
-                // Try different preprocessing methods
+                // Preprocess image - try standard VGG16 preprocessing
                 const tensor = tf.browser.fromPixels(img)
                     .resizeNearestNeighbor([224, 224])
                     .toFloat()
                     .expandDims(0);
                 
-                console.log('Tensor shape after preprocessing:', tensor.shape);
+                console.log('Tensor shape:', tensor.shape);
                 
-                // Method 1: Standard normalization (0-1) - MOST COMMON
-                const preprocessed1 = tensor.div(255.0);
-                const prediction1 = await pestModel.predict(preprocessed1);
-                const results1 = await prediction1.data();
-                console.log('Method 1 - Standard (0-1):', results1);
+                // Try standard normalization (0-1) - most common
+                const preprocessed = tensor.div(255.0);
                 
-                // Method 2: No normalization (0-255)
-                const prediction2 = await pestModel.predict(tensor);
-                const results2 = await prediction2.data();
-                console.log('Method 2 - No normalization (0-255):', results2);
+                console.log('Making prediction...');
                 
-                // Method 3: VGG preprocessing (ImageNet)
-                const preprocessed3 = tensor.div(255.0)
-                    .sub(tf.tensor1d([0.485, 0.456, 0.406]))
-                    .div(tf.tensor1d([0.229, 0.224, 0.225]));
-                const prediction3 = await pestModel.predict(preprocessed3);
-                const results3 = await prediction3.data();
-                console.log('Method 3 - VGG preprocessing:', results3);
+                // Make prediction
+                const prediction = pestModel.predict(preprocessed);
+                const results = await prediction.data();
                 
-                // Method 4: Simple normalization to [-1, 1]
-                const preprocessed4 = tensor.div(127.5).sub(1);
-                const prediction4 = await pestModel.predict(preprocessed4);
-                const results4 = await prediction4.data();
-                console.log('Method 4 - [-1, 1] normalization:', results4);
+                console.log('Raw model output:', results);
                 
                 // Clean up
                 tensor.dispose();
-                preprocessed1.dispose();
-                preprocessed3.dispose();
-                preprocessed4.dispose();
-                prediction1.dispose();
-                prediction2.dispose();
-                prediction3.dispose();
-                prediction4.dispose();
+                preprocessed.dispose();
+                if (prediction.dispose) prediction.dispose();
                 URL.revokeObjectURL(img.src);
                 
-                console.log('=== USING METHOD 1 (Standard 0-1) FOR FINAL PREDICTION ===');
-                // Use the standard method for final prediction
-                return processBinaryPestResults(results1);
+                return processBinaryPestResults(results);
                 
             } catch (error) {
                 console.error('Error in pest detection:', error);
@@ -815,46 +709,30 @@
             }
         }
 
-        // Process binary pest results with detailed debugging
+        // Process binary pest results
         function processBinaryPestResults(predictions) {
-            console.log('=== MODEL OUTPUT ANALYSIS ===');
-            console.log('Raw predictions:', predictions);
-            console.log('Array length:', predictions.length);
-            console.log('Sum of predictions:', predictions.reduce((a, b) => a + b, 0));
+            console.log('Model predictions:', predictions);
             
             let hasPest;
             let confidence;
-            let interpretationMethod = '';
             
-            // Method 1: Single output (sigmoid)
+            // Handle different output formats
             if (predictions.length === 1) {
-                interpretationMethod = 'Single output (sigmoid)';
-                console.log('Interpreting as single output (sigmoid)');
+                // Single output (sigmoid)
                 hasPest = predictions[0] > 0.5;
                 confidence = hasPest ? predictions[0] * 100 : (1 - predictions[0]) * 100;
-            }
-            // Method 2: Two outputs (softmax)
-            else if (predictions.length === 2) {
-                interpretationMethod = 'Two outputs (softmax)';
-                console.log('Interpreting as two outputs (softmax)');
-                hasPest = predictions[1] > predictions[0];
-                confidence = Math.max(predictions[0], predictions[1]) * 100;
-            }
-            // Method 3: Multiple outputs
-            else {
-                interpretationMethod = 'Multiple outputs (max confidence)';
-                console.log('Multiple outputs detected, using max confidence');
-                const maxIndex = predictions.indexOf(Math.max(...predictions));
+            } else {
+                // Multiple outputs, use the highest confidence
+                const maxConfidence = Math.max(...predictions);
+                const maxIndex = predictions.indexOf(maxConfidence);
                 hasPest = maxIndex !== 0; // Assuming index 0 is healthy
-                confidence = Math.max(...predictions) * 100;
+                confidence = maxConfidence * 100;
             }
             
+            confidence = Math.min(100, Math.max(0, confidence)); // Clamp between 0-100
             confidence = parseFloat(confidence.toFixed(1));
             
-            console.log(`Interpretation method: ${interpretationMethod}`);
-            console.log(`Final decision: ${hasPest ? 'PEST DETECTED' : 'HEALTHY'}`);
-            console.log(`Confidence: ${confidence}%`);
-            console.log('============================');
+            console.log(`Pest: ${hasPest ? 'DETECTED' : 'HEALTHY'}, Confidence: ${confidence}%`);
             
             return {
                 pest: hasPest ? 'Pest Detected' : 'Healthy',
