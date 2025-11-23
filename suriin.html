@@ -548,13 +548,16 @@
         // Load the pest model when page loads
         async function loadPestModel() {
             const modelStatus = document.getElementById('modelStatus');
-            const modelUrl = './models/pest_model/model.json';
             
             try {
                 modelStatus.innerHTML = 'Loading AI model...';
-                console.log('Loading pest detection model from:', modelUrl);
+                console.log('Loading pest detection model...');
                 
-                // Try loading as LayersModel first
+                // Define the model URL
+                const modelUrl = './models/pest_model/model.json';
+                console.log('Model URL:', modelUrl);
+                
+                // Try loading as LayersModel
                 pestModel = await tf.loadLayersModel(modelUrl);
                 modelLoaded = true;
                 
