@@ -239,6 +239,21 @@
             transition: width 0.3s ease;
         }
 
+        .model-status {
+            background-color: #e8f5e8;
+            border: 1px solid #6B8E23;
+            border-radius: 10px;
+            padding: 10px;
+            margin: 10px 0;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .model-status.error {
+            background-color: #ffe8e8;
+            border-color: #ff6b6b;
+        }
+
         /* Full Width Bottom Navigation */
         .bottom-nav {
             position: fixed;
@@ -338,6 +353,10 @@
                 </div>
             </div>
             
+            <div class="model-status" id="modelStatus">
+                Loading AI model...
+            </div>
+            
             <div class="action-containers">
                 <div class="action-container camera-container" onclick="openCamera()">
                     <!-- Text removed -->
@@ -411,8 +430,7 @@
                     'Mag-aplay ng copper-based bactericides',
                     'Mag-sanitize ng mga kagamitan',
                     'Mag-practice ng crop rotation'
-                ],
-                prevention: 'Panatilihin ang tamang spacing at iwasan ang sobrang tubig'
+                ]
             },
             'Brown Spot': {
                 symptoms: 'Mga bilog na kayumanggi spots na may dilaw na halo',
@@ -422,8 +440,7 @@
                     'Gumamit ng silicon-based fertilizers',
                     'Mag-practice ng field sanitation',
                     'Iwasan ang water stress'
-                ],
-                prevention: 'Balanseng fertilization at tamang water management'
+                ]
             },
             'Leaf Blast': {
                 symptoms: 'Mga diamond-shaped na lesions na may grey centers',
@@ -433,8 +450,7 @@
                     'Iwasan ang sobrang nitrogen',
                     'Mag-practice ng early planting',
                     'Gamitan ng biological controls'
-                ],
-                prevention: 'Tamang timing ng planting at balanced nutrition'
+                ]
             },
             'Leaf Scald': {
                 symptoms: 'Mga irregular-shaped lesions na may zonation',
@@ -444,8 +460,7 @@
                     'Iwasan ang waterlogging',
                     'Mag-sanitize ng planting materials',
                     'Gumamit ng healthy seeds'
-                ],
-                prevention: 'Maayos na drainage at field sanitation'
+                ]
             },
             'Narrow Brown Leaf Spot': {
                 symptoms: 'Mga makitid na kayumanggi lesions sa mga dahon',
@@ -455,8 +470,7 @@
                     'Iwasan ang makapal na planting',
                     'Mag-practice ng balanced fertilization',
                     'Gumamit ng resistant varieties'
-                ],
-                prevention: 'Tamang plant spacing at nutrition management'
+                ]
             },
             'Rice Hispa': {
                 symptoms: 'Mga white streaks at tunnels sa mga dahon',
@@ -466,8 +480,7 @@
                     'Mag-practice ng field sanitation',
                     'Gumamit ng light traps',
                     'Mag-aplay ng neem-based products'
-                ],
-                prevention: 'Regular monitoring at early detection'
+                ]
             },
             'Sheath Blight': {
                 symptoms: 'Mga oval-shaped lesions sa leaf sheaths',
@@ -477,8 +490,7 @@
                     'Iwasan ang sobrang nitrogen',
                     'Mag-improve ng air circulation',
                     'Gumamit ng resistant varieties'
-                ],
-                prevention: 'Tamang plant density at water management'
+                ]
             },
             'Tungro': {
                 symptoms: 'Yellow-orange discoloration at stunted growth',
@@ -488,8 +500,7 @@
                     'Mag-practice ng synchronous planting',
                     'Gamitan ng appropriate insecticides',
                     'Mag-rouge ng infected plants'
-                ],
-                prevention: 'Vector control at resistant varieties'
+                ]
             },
             'Healthy Rice Leaf': {
                 symptoms: 'Malusog na berdeng mga dahon',
@@ -499,12 +510,11 @@
                     'Panatilihin ang balanced fertilization',
                     'I-maintain ang proper water management',
                     'Mag-practice ng integrated pest management'
-                ],
-                prevention: 'Consistent good agricultural practices'
+                ]
             }
         };
 
-        // Updated pest database for binary classification
+        // Pest database for binary classification
         const pestDatabase = {
             'Healthy': {
                 description: 'Walang nakikitang peste sa palay.<br>Malusog ang mga halaman.',
@@ -533,35 +543,33 @@
         };
 
         let pestModel = null;
+        let modelLoaded = false;
 
         // Load the pest model when page loads
         async function loadPestModel() {
+            const modelStatus = document.getElementById('modelStatus');
+            const modelUrl = './models/pest_model/model.json';
+            
             try {
-                console.log('Loading pest detection model...');
+                modelStatus.innerHTML = 'Loading AI model...';
+                console.log('Loading pest detection model from:', modelUrl);
                 
-                // Update this path to match your repository structure
-                const modelUrl = './models/pest_model/model.json';
+                // Try loading as LayersModel first
+                pestModel = await tf.loadLayersModel(modelUrl);
+                modelLoaded = true;
                 
-                // Try loading as GraphModel first (for SavedModel conversions)
-                pestModel = await tf.loadGraphModel(modelUrl);
-                console.log('✅ Pest model loaded successfully as GraphModel!');
-                console.log('Model inputs:', pestModel.inputs);
-                console.log('Model outputs:', pestModel.outputs);
+                console.log('✅ Pest model loaded successfully!');
+                console.log('Model input shape:', pestModel.inputs[0].shape);
+                console.log('Model output shape:', pestModel.outputs[0].shape);
+                
+                modelStatus.innerHTML = '✅ AI model loaded successfully! Ready for pest detection.';
+                modelStatus.className = 'model-status';
                 
             } catch (error) {
-                console.error('❌ Error loading pest model with GraphModel:', error);
-                console.log('Trying alternative model loading method...');
-                
-                // Try alternative loading method
-                try {
-                    pestModel = await tf.loadLayersModel(modelUrl);
-                    console.log('✅ Pest model loaded successfully with Layers API!');
-                    console.log('Model input shape:', pestModel.inputs[0].shape);
-                    console.log('Model output shape:', pestModel.outputs[0].shape);
-                } catch (error2) {
-                    console.error('❌ Both model loading methods failed:', error2);
-                    console.log('Will use simulation mode for pest detection');
-                }
+                console.error('❌ Error loading pest model:', error);
+                modelStatus.innerHTML = '⚠ AI model not loaded. Using simulation mode for pest detection.';
+                modelStatus.className = 'model-status error';
+                modelLoaded = false;
             }
         }
 
@@ -610,13 +618,13 @@
                 uploadedImage.style.display = 'block';
                 noImageText.style.display = 'none';
                 
-                // Analyze image with ML (now uses real model for pests)
+                // Analyze image with ML
                 await analyzeImageWithML(file, e.target.result);
             }
             reader.readAsDataURL(file);
         }
 
-        // Updated analysis function - uses real model for pests, simulation for diseases
+        // Main analysis function
         async function analyzeImageWithML(file, imageData) {
             const loadingAnalysis = document.getElementById('loadingAnalysis');
             const progressBar = document.getElementById('analysisProgressBar');
@@ -628,7 +636,7 @@
             try {
                 progressBar.style.width = '30%';
                 
-                // Get pest prediction from actual model
+                // Get pest prediction
                 const pestPredictions = await analyzePestWithModel(file);
                 
                 progressBar.style.width = '70%';
@@ -655,10 +663,10 @@
             }
         }
 
-        // Enhanced pest detection function with better debugging
+        // Pest detection function
         async function analyzePestWithModel(file) {
             // If model didn't load, use simulation
-            if (!pestModel) {
+            if (!modelLoaded || !pestModel) {
                 console.log('Pest model not loaded, using simulation');
                 return simulatePestPrediction();
             }
@@ -676,87 +684,32 @@
                 
                 console.log('Original image dimensions:', img.naturalWidth, 'x', img.naturalHeight);
                 
-                // Try different preprocessing methods to find what works
+                // Preprocess image for model
                 const tensor = tf.browser.fromPixels(img)
-                    .resizeNearestNeighbor([224, 224])
+                    .resizeNearestNeighbor([224, 224]) // Standard VGG16 size
                     .toFloat()
                     .expandDims(0);
                 
                 console.log('Tensor shape:', tensor.shape);
                 
-                let finalResults;
-                let usedMethod = '';
+                // Normalize to [0, 1] - most common preprocessing
+                const preprocessed = tensor.div(255.0);
                 
-                // Method 1: Standard normalization (0-1)
-                try {
-                    const preprocessed1 = tensor.div(255.0);
-                    const prediction1 = pestModel.predict(preprocessed1);
-                    const results1 = await prediction1.data();
-                    console.log('Method 1 - Standard (0-1):', results1);
-                    
-                    // Method 2: No normalization (0-255)
-                    const prediction2 = pestModel.predict(tensor);
-                    const results2 = await prediction2.data();
-                    console.log('Method 2 - No normalization (0-255):', results2);
-                    
-                    // Method 3: VGG preprocessing
-                    const preprocessed3 = tensor.div(255.0)
-                        .sub(tf.tensor1d([0.485, 0.456, 0.406]))
-                        .div(tf.tensor1d([0.229, 0.224, 0.225]));
-                    const prediction3 = pestModel.predict(preprocessed3);
-                    const results3 = await prediction3.data();
-                    console.log('Method 3 - VGG preprocessing:', results3);
-                    
-                    // Choose the method that gives the most varied results (not all zeros or ones)
-                    const variance1 = Math.max(...results1) - Math.min(...results1);
-                    const variance2 = Math.max(...results2) - Math.min(...results2);
-                    const variance3 = Math.max(...results3) - Math.min(...results3);
-                    
-                    console.log('Variances:', {variance1, variance2, variance3});
-                    
-                    if (variance2 > variance1 && variance2 > variance3) {
-                        console.log('Using Method 2 (no normalization)');
-                        finalResults = results2;
-                        usedMethod = 'No normalization';
-                    } else if (variance3 > variance1 && variance3 > variance2) {
-                        console.log('Using Method 3 (VGG preprocessing)');
-                        finalResults = results3;
-                        usedMethod = 'VGG preprocessing';
-                    } else {
-                        console.log('Using Method 1 (standard normalization)');
-                        finalResults = results1;
-                        usedMethod = 'Standard normalization';
-                    }
-                    
-                    // Clean up
-                    preprocessed1.dispose();
-                    preprocessed3.dispose();
-                    prediction1.dispose();
-                    prediction2.dispose();
-                    prediction3.dispose();
-                    
-                } catch (predictError) {
-                    console.error('Error in prediction methods:', predictError);
-                    // Try just the basic tensor
-                    try {
-                        const prediction = pestModel.predict(tensor);
-                        finalResults = await prediction.data();
-                        prediction.dispose();
-                        usedMethod = 'Basic tensor only';
-                        console.log('Using basic tensor method:', finalResults);
-                    } catch (basicError) {
-                        console.error('All prediction methods failed:', basicError);
-                        throw basicError;
-                    }
-                }
+                console.log('Making prediction...');
                 
-                // Clean up main tensor
+                // Make prediction
+                const prediction = pestModel.predict(preprocessed);
+                const results = await prediction.data();
+                
+                console.log('Raw model output:', results);
+                
+                // Clean up
                 tensor.dispose();
+                preprocessed.dispose();
+                prediction.dispose();
                 URL.revokeObjectURL(img.src);
                 
-                const result = processBinaryPestResults(finalResults);
-                console.log(`Used method: ${usedMethod}, Final result:`, result);
-                return result;
+                return processBinaryPestResults(results);
                 
             } catch (error) {
                 console.error('Error in pest detection:', error);
@@ -764,41 +717,30 @@
             }
         }
 
-        // Process binary pest results with enhanced debugging
+        // Process pest results
         function processBinaryPestResults(predictions) {
-            console.log('=== MODEL PREDICTION ANALYSIS ===');
-            console.log('Raw predictions:', predictions);
-            console.log('Array length:', predictions.length);
-            console.log('Sum of predictions:', predictions.reduce((a, b) => a + b, 0));
-            console.log('Max prediction:', Math.max(...predictions));
-            console.log('Min prediction:', Math.min(...predictions));
+            console.log('Model predictions:', predictions);
             
             let hasPest;
             let confidence;
             
             // Handle different output formats
             if (predictions.length === 1) {
-                // Single output (sigmoid)
-                console.log('Interpreting as single output (sigmoid)');
+                // Single output (sigmoid) - value is probability of pest
                 hasPest = predictions[0] > 0.5;
                 confidence = hasPest ? predictions[0] * 100 : (1 - predictions[0]) * 100;
             } else {
-                // Multiple outputs, use the highest confidence
-                console.log('Interpreting as multiple outputs (softmax)');
+                // Multiple outputs - use highest confidence
                 const maxConfidence = Math.max(...predictions);
                 const maxIndex = predictions.indexOf(maxConfidence);
                 hasPest = maxIndex !== 0; // Assuming index 0 is healthy
                 confidence = maxConfidence * 100;
-                
-                console.log(`Max index: ${maxIndex}, Max confidence: ${maxConfidence}`);
             }
             
-            confidence = Math.min(100, Math.max(0, confidence)); // Clamp between 0-100
+            confidence = Math.min(100, Math.max(0, confidence));
             confidence = parseFloat(confidence.toFixed(1));
             
-            console.log(`FINAL DECISION: ${hasPest ? 'PEST DETECTED' : 'HEALTHY'}`);
-            console.log(`Confidence: ${confidence}%`);
-            console.log('================================');
+            console.log(`Pest detected: ${hasPest}, Confidence: ${confidence}%`);
             
             return {
                 pest: hasPest ? 'Pest Detected' : 'Healthy',
@@ -807,7 +749,7 @@
             };
         }
 
-        // Keep your existing disease simulation
+        // Disease simulation
         function simulateDiseasePrediction() {
             const diseases = Object.keys(diseaseDatabase);
             const randomDisease = diseases[Math.floor(Math.random() * diseases.length)];
@@ -820,10 +762,9 @@
             };
         }
 
-        // Updated pest simulation for binary results
+        // Pest simulation
         function simulatePestPrediction() {
-            // 70% chance of healthy, 30% chance of pest (realistic distribution)
-            const hasPest = Math.random() < 0.3;
+            const hasPest = Math.random() < 0.3; // 30% chance of pest
             const confidence = (80 + Math.random() * 15).toFixed(1);
             
             return {
@@ -833,7 +774,7 @@
             };
         }
 
-        // Simulated analysis progress
+        // Progress simulation
         async function simulateAnalysis(progressBar) {
             return new Promise((resolve) => {
                 let progress = 0;
@@ -858,7 +799,6 @@
             
             const diseaseInfo = diseaseDatabase[prediction.disease];
             
-            // Display main result
             if (prediction.isHealthy) {
                 diseaseResult.innerHTML = `
                     <strong style="color: #6B8E23;">✓ Malusog na Palay</strong><br>
@@ -871,13 +811,11 @@
                 `;
             }
             
-            // Display confidence
             confidenceBar.style.display = 'block';
             confidenceFill.style.width = prediction.confidence + '%';
             confidenceText.style.display = 'block';
             confidenceText.textContent = `Kumpiyansa: ${prediction.confidence}%`;
             
-            // Display treatment guide
             treatmentSteps.innerHTML = '';
             diseaseInfo.treatment.forEach(step => {
                 const li = document.createElement('li');
@@ -898,7 +836,6 @@
             
             const pestInfo = pestDatabase[prediction.pest];
             
-            // Display main result with better formatting
             if (!prediction.hasPest) {
                 pestResult.innerHTML = `
                     <strong style="color: #6B8E23;">✓ Walang Peste</strong><br>
@@ -911,13 +848,11 @@
                 `;
             }
             
-            // Display confidence
             confidenceBar.style.display = 'block';
             confidenceFill.style.width = prediction.confidence + '%';
             confidenceText.style.display = 'block';
             confidenceText.textContent = `Kumpiyansa: ${prediction.confidence}%`;
             
-            // Display treatment guide
             treatmentSteps.innerHTML = '';
             pestInfo.treatment.forEach(step => {
                 const li = document.createElement('li');
@@ -928,17 +863,15 @@
             treatmentGuide.style.display = 'block';
         }
 
-        // Add drag and drop functionality
+        // Drag and drop functionality
         document.addEventListener('DOMContentLoaded', function() {
             const imagePlaceholder = document.getElementById('imagePlaceholder');
             
-            // Prevent default drag behaviors
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
                 imagePlaceholder.addEventListener(eventName, preventDefaults, false);
                 document.body.addEventListener(eventName, preventDefaults, false);
             });
             
-            // Highlight drop area when item is dragged over it
             ['dragenter', 'dragover'].forEach(eventName => {
                 imagePlaceholder.addEventListener(eventName, highlight, false);
             });
@@ -947,7 +880,6 @@
                 imagePlaceholder.addEventListener(eventName, unhighlight, false);
             });
             
-            // Handle dropped files
             imagePlaceholder.addEventListener('drop', handleDrop, false);
             
             function preventDefaults(e) {
