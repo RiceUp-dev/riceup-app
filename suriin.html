@@ -611,6 +611,13 @@
                 // Debug info
                 console.log('Model input shape:', pestModel.inputs[0].shape);
                 console.log('Model output shape:', pestModel.outputs[0].shape);
+                console.log('Number of layers:', pestModel.layers.length);
+                
+                // Test with a dummy input
+                const dummyInput = tf.ones([1, 224, 224, 3]);
+                const dummyOutput = await pestModel.predict(dummyInput).data();
+                console.log('Dummy test output:', dummyOutput);
+                dummyInput.dispose();
                 
             } catch (error) {
                 console.error('❌ Error loading pest model:', error);
@@ -733,7 +740,7 @@
             }
         }
 
-        // Actual TensorFlow.js pest detection for binary classification
+        // Debug version of pest detection with multiple preprocessing methods
         async function analyzePestWithModel(file) {
             // If model didn't load, use simulation
             if (!pestModel) {
@@ -752,30 +759,55 @@
                 
                 await imageLoadPromise;
                 
-                // Preprocess image for VGG16 model (224x224 input)
+                console.log('Original image dimensions:', img.naturalWidth, 'x', img.naturalHeight);
+                
+                // Try different preprocessing methods
                 const tensor = tf.browser.fromPixels(img)
-                    .resizeNearestNeighbor([224, 224]) // VGG16 input size
+                    .resizeNearestNeighbor([224, 224])
                     .toFloat()
                     .expandDims(0);
                 
-                // VGG16 preprocessing: normalize to [0,1]
-                const preprocessed = tensor.div(255.0);
+                console.log('Tensor shape after preprocessing:', tensor.shape);
                 
-                console.log('Making pest prediction...');
+                // Method 1: Standard normalization (0-1) - MOST COMMON
+                const preprocessed1 = tensor.div(255.0);
+                const prediction1 = await pestModel.predict(preprocessed1);
+                const results1 = await prediction1.data();
+                console.log('Method 1 - Standard (0-1):', results1);
                 
-                // Make prediction
-                const prediction = await pestModel.predict(preprocessed);
-                const results = await prediction.data();
+                // Method 2: No normalization (0-255)
+                const prediction2 = await pestModel.predict(tensor);
+                const results2 = await prediction2.data();
+                console.log('Method 2 - No normalization (0-255):', results2);
                 
-                console.log('Raw model output:', results);
+                // Method 3: VGG preprocessing (ImageNet)
+                const preprocessed3 = tensor.div(255.0)
+                    .sub(tf.tensor1d([0.485, 0.456, 0.406]))
+                    .div(tf.tensor1d([0.229, 0.224, 0.225]));
+                const prediction3 = await pestModel.predict(preprocessed3);
+                const results3 = await prediction3.data();
+                console.log('Method 3 - VGG preprocessing:', results3);
                 
-                // Clean up memory
+                // Method 4: Simple normalization to [-1, 1]
+                const preprocessed4 = tensor.div(127.5).sub(1);
+                const prediction4 = await pestModel.predict(preprocessed4);
+                const results4 = await prediction4.data();
+                console.log('Method 4 - [-1, 1] normalization:', results4);
+                
+                // Clean up
                 tensor.dispose();
-                preprocessed.dispose();
-                prediction.dispose();
+                preprocessed1.dispose();
+                preprocessed3.dispose();
+                preprocessed4.dispose();
+                prediction1.dispose();
+                prediction2.dispose();
+                prediction3.dispose();
+                prediction4.dispose();
                 URL.revokeObjectURL(img.src);
                 
-                return processBinaryPestResults(results);
+                console.log('=== USING METHOD 1 (Standard 0-1) FOR FINAL PREDICTION ===');
+                // Use the standard method for final prediction
+                return processBinaryPestResults(results1);
                 
             } catch (error) {
                 console.error('Error in pest detection:', error);
@@ -783,32 +815,50 @@
             }
         }
 
-        // Process binary pest results (Healthy vs Pest)
+        // Process binary pest results with detailed debugging
         function processBinaryPestResults(predictions) {
-            // For binary classification, we have two possibilities:
-            // Option 1: Single output [0-1] where >0.5 means pest
-            // Option 2: Two outputs [healthy_prob, pest_prob]
+            console.log('=== MODEL OUTPUT ANALYSIS ===');
+            console.log('Raw predictions:', predictions);
+            console.log('Array length:', predictions.length);
+            console.log('Sum of predictions:', predictions.reduce((a, b) => a + b, 0));
             
             let hasPest;
             let confidence;
+            let interpretationMethod = '';
             
+            // Method 1: Single output (sigmoid)
             if (predictions.length === 1) {
-                // Single output: value represents pest probability
+                interpretationMethod = 'Single output (sigmoid)';
+                console.log('Interpreting as single output (sigmoid)');
                 hasPest = predictions[0] > 0.5;
                 confidence = hasPest ? predictions[0] * 100 : (1 - predictions[0]) * 100;
-            } else {
-                // Two outputs: [healthy_prob, pest_prob]
+            }
+            // Method 2: Two outputs (softmax)
+            else if (predictions.length === 2) {
+                interpretationMethod = 'Two outputs (softmax)';
+                console.log('Interpreting as two outputs (softmax)');
                 hasPest = predictions[1] > predictions[0];
-                confidence = hasPest ? predictions[1] * 100 : predictions[0] * 100;
+                confidence = Math.max(predictions[0], predictions[1]) * 100;
+            }
+            // Method 3: Multiple outputs
+            else {
+                interpretationMethod = 'Multiple outputs (max confidence)';
+                console.log('Multiple outputs detected, using max confidence');
+                const maxIndex = predictions.indexOf(Math.max(...predictions));
+                hasPest = maxIndex !== 0; // Assuming index 0 is healthy
+                confidence = Math.max(...predictions) * 100;
             }
             
-            confidence = confidence.toFixed(1);
+            confidence = parseFloat(confidence.toFixed(1));
             
-            console.log(`Pest detected: ${hasPest}, Confidence: ${confidence}%`);
+            console.log(`Interpretation method: ${interpretationMethod}`);
+            console.log(`Final decision: ${hasPest ? 'PEST DETECTED' : 'HEALTHY'}`);
+            console.log(`Confidence: ${confidence}%`);
+            console.log('============================');
             
             return {
                 pest: hasPest ? 'Pest Detected' : 'Healthy',
-                confidence: parseFloat(confidence),
+                confidence: confidence,
                 hasPest: hasPest
             };
         }
