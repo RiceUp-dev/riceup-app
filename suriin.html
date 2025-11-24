@@ -648,11 +648,11 @@
                 img.onload = resolve;
             });
             
-            // Preprocess image for PEST model
+            // Preprocess image for PEST model - matching your Colab preprocessing
             const tensor = tf.browser.fromPixels(img)
                 .resizeNearestNeighbor([224, 224]) // Adjust based on your pest model input size
                 .toFloat()
-                .div(255.0) // Normalize to [0,1]
+                .div(255.0) // Normalize to [0,1] - SAME as Colab
                 .expandDims(); // Add batch dimension
             
             // Make PEST prediction
@@ -681,53 +681,28 @@
             // Simulate disease prediction for now
             await new Promise(resolve => setTimeout(resolve, 500));
             return simulateDiseasePrediction();
-            
-            /* TODO: Uncomment and implement when you have the disease model
-            const tensor = tf.browser.fromPixels(img)
-                .resizeNearestNeighbor([224, 224]) // Adjust based on your disease model input size
-                .toFloat()
-                .div(255.0)
-                .expandDims();
-            
-            const prediction = await riceDiseaseModel.predict(tensor);
-            const results = await prediction.data();
-            
-            tensor.dispose();
-            prediction.dispose();
-            
-            return processDiseaseOutput(results);
-            */
         }
 
-        // Process PEST model output
+        // Process PEST model output - UPDATED for your specific model
         function processPestOutput(predictionArray) {
-            // Your pest model likely outputs [probability_healthy, probability_pest] or similar
             const probabilities = Array.from(predictionArray);
             
-            // Assuming binary classification: [Healthy probability, Pest probability]
-            let healthyProb, pestProb;
-            
-            if (probabilities.length === 2) {
-                // Binary classification
-                healthyProb = probabilities[0];
-                pestProb = probabilities[1];
-            } else if (probabilities.length === 1) {
-                // Single output (sigmoid)
-                healthyProb = 1 - probabilities[0];
-                pestProb = probabilities[0];
-            } else {
-                // Fallback
-                healthyProb = 0.5;
-                pestProb = 0.5;
-            }
+            // Your model outputs: [healthy_probability, pest_probability] with softmax
+            const healthyProb = probabilities[0];
+            const pestProb = probabilities[1];
             
             const hasPest = pestProb > healthyProb;
             const confidence = (Math.max(healthyProb, pestProb) * 100).toFixed(1);
+            const pestType = hasPest ? 'Insects' : 'Healthy';
+            
+            console.log(`🐛 Pest Detection: Healthy=${healthyProb.toFixed(4)}, Pest=${pestProb.toFixed(4)}, Final=${pestType}`);
             
             return {
-                pest: hasPest ? 'Insects' : 'Healthy',
+                pest: pestType,
                 confidence: parseFloat(confidence),
-                hasPest: hasPest
+                hasPest: hasPest,
+                healthyProb: healthyProb,
+                pestProb: pestProb
             };
         }
 
