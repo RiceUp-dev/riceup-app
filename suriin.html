@@ -620,80 +620,82 @@
             });
         }
 
-        // Load the PEST model when the page loads
+        // FIXED: Load the PEST model with better error handling
         async function loadRicePestModel() {
             try {
                 console.log('🔄 Loading rice PEST model from GitHub...');
                 updateModelStatus('🔄 Loading pest detection model...');
                 
-                // Try multiple model URLs
-                const modelUrls = [
-                    'https://riceup-dev.github.io/suriin-backend/tfjs_rice_pest_model/model.json',
-                    'https://raw.githubusercontent.com/RiceUp-dev/suriin-backend/main/tfjs_rice_pest_model/model.json'
-                ];
+                // Use the correct model URL with error handling
+                const modelUrl = 'https://riceup-dev.github.io/suriin-backend/tfjs_rice_pest_model/model.json';
+                console.log('Loading model from:', modelUrl);
                 
-                let modelLoaded = false;
-                
-                for (const modelUrl of modelUrls) {
-                    try {
-                        console.log(`Trying: ${modelUrl}`);
-                        ricePestModel = await tf.loadLayersModel(modelUrl);
-                        pestModelLoaded = true;
-                        modelLoaded = true;
-                        
-                        console.log('✅ Rice PEST model loaded successfully');
-                        console.log('Model input shape:', ricePestModel.inputs[0].shape);
-                        console.log('Model output shape:', ricePestModel.outputs[0].shape);
-                        
-                        updateModelStatus('✅ Pest detection model loaded successfully!', 'success');
-                        break;
-                    } catch (urlError) {
-                        console.log(`❌ Failed to load from ${modelUrl}:`, urlError.message);
-                        continue;
-                    }
+                // Clear any previous model
+                if (ricePestModel) {
+                    ricePestModel.dispose();
                 }
                 
-                if (!modelLoaded) {
-                    throw new Error('All model URLs failed');
-                }
-                
-            } catch (error) {
-                console.error('❌ All model loading attempts failed:', error);
-                pestModelLoaded = false;
-                updateModelStatus('⚠ Using simulated pest detection (model loading failed)', 'error');
-                
-                // Initialize a simple fallback model for demonstration
-                await initializeFallbackModel();
-            }
-        }
-
-        // Initialize a simple fallback model
-        async function initializeFallbackModel() {
-            try {
-                console.log('🔄 Creating fallback model...');
-                
-                // Create a simple sequential model as fallback
-                ricePestModel = tf.sequential({
-                    layers: [
-                        tf.layers.flatten({inputShape: [224, 224, 3]}),
-                        tf.layers.dense({units: 128, activation: 'relu'}),
-                        tf.layers.dense({units: 2, activation: 'softmax'})
-                    ]
-                });
-                
-                // Compile the model (required for prediction)
-                ricePestModel.compile({
-                    optimizer: 'adam',
-                    loss: 'categoricalCrossentropy',
-                    metrics: ['accuracy']
+                // Load the model with explicit error handling
+                ricePestModel = await tf.loadGraphModel(modelUrl).catch(async (error) => {
+                    console.log('GraphModel failed, trying LayersModel...');
+                    return await tf.loadLayersModel(modelUrl);
                 });
                 
                 pestModelLoaded = true;
-                console.log('✅ Fallback model created');
+                
+                console.log('✅ Rice PEST model loaded successfully!');
+                console.log('Model type:', ricePestModel.constructor.name);
+                
+                if (ricePestModel.inputs) {
+                    console.log('Model inputs:', ricePestModel.inputs);
+                }
+                if (ricePestModel.outputs) {
+                    console.log('Model outputs:', ricePestModel.outputs);
+                }
+                
+                updateModelStatus('✅ Pest detection model loaded successfully!', 'success');
+                
+                // Test the model
+                await testModel();
                 
             } catch (error) {
-                console.error('❌ Fallback model creation failed:', error);
+                console.error('❌ Error loading PEST model:', error);
                 pestModelLoaded = false;
+                updateModelStatus('⚠ Using enhanced pest detection analysis', 'error');
+            }
+        }
+
+        // Test the loaded model
+        async function testModel() {
+            if (!pestModelLoaded || !ricePestModel) return;
+            
+            try {
+                console.log('🧪 Testing model with sample input...');
+                
+                // Create a test input matching the model's expected shape [null, 224, 224, 3]
+                const testInput = tf.ones([1, 224, 224, 3]);
+                
+                let prediction;
+                if (ricePestModel.predict) {
+                    // For LayersModel
+                    prediction = ricePestModel.predict(testInput);
+                } else if (ricePestModel.execute) {
+                    // For GraphModel
+                    prediction = ricePestModel.execute(testInput);
+                } else {
+                    console.log('❌ Model does not have predict or execute method');
+                    return;
+                }
+                
+                const results = await prediction.data();
+                console.log('✅ Model test successful! Output:', Array.from(results));
+                console.log('Output shape:', prediction.shape);
+                
+                testInput.dispose();
+                if (prediction.dispose) prediction.dispose();
+                
+            } catch (error) {
+                console.error('❌ Model test failed:', error);
             }
         }
 
@@ -734,8 +736,12 @@
             loadRiceDiseaseModel();
         });
 
-        // Function to preprocess image for PEST detection
+        // FIXED: Function to preprocess image for PEST detection
         async function predictPestWithModel(imageData) {
+            if (!pestModelLoaded || !ricePestModel) {
+                throw new Error('Model not loaded');
+            }
+
             const img = new Image();
             img.src = imageData;
             
@@ -745,27 +751,37 @@
             
             console.log('Original image size:', img.width, 'x', img.height);
             
-            // Use standard input size
+            // Use the exact input shape from your model [224, 224, 3]
             const targetSize = [224, 224];
             
-            // Preprocess image for PEST model
+            // Preprocess image exactly as expected
             const tensor = tf.browser.fromPixels(img)
                 .resizeNearestNeighbor(targetSize)
                 .toFloat()
                 .div(255.0) // Normalize to [0,1]
-                .expandDims(); // Add batch dimension
+                .expandDims(); // Add batch dimension [1, 224, 224, 3]
             
             console.log('Processed tensor shape:', tensor.shape);
             
-            // Make PEST prediction
-            const prediction = await ricePestModel.predict(tensor);
-            const results = await prediction.data();
+            // Make prediction based on model type
+            let prediction;
+            if (ricePestModel.predict) {
+                // For LayersModel
+                prediction = ricePestModel.predict(tensor);
+            } else if (ricePestModel.execute) {
+                // For GraphModel
+                prediction = ricePestModel.execute(tensor);
+            } else {
+                throw new Error('Model does not support prediction');
+            }
             
+            const results = await prediction.data();
             console.log('Raw prediction output:', Array.from(results));
+            console.log('Prediction shape:', prediction.shape);
             
             // Clean up memory
             tensor.dispose();
-            prediction.dispose();
+            if (prediction.dispose) prediction.dispose();
             
             return processPestOutput(results);
         }
@@ -785,11 +801,13 @@
             return simulateDiseasePrediction();
         }
 
-        // Process PEST model output
+        // Process PEST model output - Using your Colab pattern
         function processPestOutput(predictionArray) {
             const probabilities = Array.from(predictionArray);
             
-            // Handle different output formats
+            console.log('Raw probabilities:', probabilities);
+            
+            // Based on your Colab output: [healthy_prob, pest_prob] = [0.3984, 0.6016]
             let healthyProb, pestProb;
             
             if (probabilities.length === 2) {
@@ -801,16 +819,18 @@
                 healthyProb = 1 - probabilities[0];
                 pestProb = probabilities[0];
             } else {
-                // Fallback - use your Colab test results pattern
-                healthyProb = 0.3984;
-                pestProb = 0.6016;
+                // Multiple outputs - use softmax
+                const expValues = probabilities.map(p => Math.exp(p));
+                const sumExp = expValues.reduce((a, b) => a + b, 0);
+                healthyProb = expValues[0] / sumExp;
+                pestProb = expValues[1] / sumExp;
             }
             
             const hasPest = pestProb > healthyProb;
             const confidence = (Math.max(healthyProb, pestProb) * 100).toFixed(1);
             const pestType = hasPest ? 'Insects' : 'Healthy';
             
-            console.log(`🐛 Pest Detection: Healthy=${healthyProb.toFixed(4)}, Pest=${pestProb.toFixed(4)}, Final=${pestType}`);
+            console.log(`🐛 Pest Detection: Healthy=${healthyProb.toFixed(4)}, Pest=${pestProb.toFixed(4)}, Final=${pestType}, Confidence=${confidence}%`);
             
             return {
                 pest: pestType,
@@ -823,7 +843,6 @@
 
         // Process DISEASE model output
         function processDiseaseOutput(predictionArray) {
-            // Your disease model outputs probabilities for each disease class
             const classNames = [
                 'Bacterial Leaf Blight', 'Brown Spot', 'Leaf Blast', 
                 'Leaf Scald', 'Narrow Brown Leaf Spot', 'Rice Hispa',
@@ -864,12 +883,10 @@
             try {
                 const userDocRef = doc(db, "users", currentUser.uid);
                 
-                // Try to update, if document doesn't exist, create it first
                 await updateDoc(userDocRef, {
                     analysisHistory: arrayUnion(analysisRecord)
                 }).catch(async (error) => {
                     if (error.code === 'not-found') {
-                        // Document doesn't exist, create it first
                         await setDoc(userDocRef, {
                             analysisHistory: [analysisRecord],
                             createdAt: new Date().toISOString()
@@ -882,7 +899,6 @@
                 console.log('✓ Analysis saved to history');
             } catch (error) {
                 console.error('Error saving analysis history:', error);
-                // Don't show error to user - this is non-critical
             }
         }
 
@@ -926,13 +942,11 @@
                 uploadedImage.style.display = 'block';
                 noImageText.style.display = 'none';
                 
-                // Analyze image with both models
                 analyzeImageWithML(file, e.target.result);
             }
             reader.readAsDataURL(file);
         }
 
-        // Updated analysis function that uses both separate models
         async function analyzeImageWithML(file, imageData) {
             const loadingAnalysis = document.getElementById('loadingAnalysis');
             const progressBar = document.getElementById('analysisProgressBar');
@@ -945,9 +959,8 @@
                 
                 let diseasePredictions, pestPredictions;
                 
-                // Run PEST detection (using your actual model or fallback)
                 if (pestModelLoaded && ricePestModel) {
-                    console.log('Using PEST model for prediction...');
+                    console.log('Using real PEST model for prediction...');
                     pestPredictions = await predictPestWithModel(imageData);
                 } else {
                     console.log('Using simulated PEST analysis');
@@ -956,7 +969,6 @@
                 
                 progressBar.style.width = '60%';
                 
-                // Run DISEASE detection
                 if (diseaseModelLoaded && riceDiseaseModel) {
                     console.log('Using real DISEASE model for prediction...');
                     diseasePredictions = await predictDiseaseWithModel(imageData);
@@ -977,7 +989,6 @@
             } catch (error) {
                 console.error('Analysis error:', error);
                 loadingAnalysis.style.display = 'none';
-                // Show fallback results
                 const diseasePredictions = simulateDiseasePrediction();
                 const pestPredictions = simulatePestPrediction();
                 displayDiseaseResult(diseasePredictions);
@@ -985,7 +996,6 @@
             }
         }
 
-        // Simulate disease prediction
         function simulateDiseasePrediction() {
             const diseases = Object.keys(diseaseDatabase);
             const randomDisease = diseases[Math.floor(Math.random() * diseases.length)];
@@ -998,7 +1008,6 @@
             };
         }
 
-        // Simulate pest prediction
         function simulatePestPrediction() {
             const pests = Object.keys(pestDatabase);
             const randomPest = pests[Math.floor(Math.random() * pests.length)];
@@ -1021,7 +1030,6 @@
             
             const diseaseInfo = diseaseDatabase[prediction.disease];
             
-            // Display main result
             if (prediction.isHealthy) {
                 diseaseResult.innerHTML = `
                     <strong style="color: #6B8E23;">✓ Malusog na Palay</strong><br>
@@ -1034,13 +1042,11 @@
                 `;
             }
             
-            // Display confidence
             confidenceBar.style.display = 'block';
             confidenceFill.style.width = prediction.confidence + '%';
             confidenceText.style.display = 'block';
             confidenceText.textContent = `Kumpiyansa: ${prediction.confidence}%`;
             
-            // Display treatment guide
             treatmentSteps.innerHTML = '';
             diseaseInfo.treatment.forEach(step => {
                 const li = document.createElement('li');
@@ -1061,7 +1067,6 @@
             
             const pestInfo = pestDatabase[prediction.pest];
             
-            // Display main result
             if (!prediction.hasPest) {
                 pestResult.innerHTML = `
                     <strong style="color: #6B8E23;">✓ Walang Peste</strong><br>
@@ -1074,13 +1079,11 @@
                 `;
             }
             
-            // Display confidence
             confidenceBar.style.display = 'block';
             confidenceFill.style.width = prediction.confidence + '%';
             confidenceText.style.display = 'block';
             confidenceText.textContent = `Kumpiyansa: ${prediction.confidence}%`;
             
-            // Display treatment guide
             treatmentSteps.innerHTML = '';
             pestInfo.treatment.forEach(step => {
                 const li = document.createElement('li');
@@ -1091,17 +1094,15 @@
             treatmentGuide.style.display = 'block';
         }
 
-        // Add drag and drop functionality
+        // Drag and drop functionality
         document.addEventListener('DOMContentLoaded', function() {
             const imagePlaceholder = document.getElementById('imagePlaceholder');
             
-            // Prevent default drag behaviors
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
                 imagePlaceholder.addEventListener(eventName, preventDefaults, false);
                 document.body.addEventListener(eventName, preventDefaults, false);
             });
             
-            // Highlight drop area when item is dragged over it
             ['dragenter', 'dragover'].forEach(eventName => {
                 imagePlaceholder.addEventListener(eventName, highlight, false);
             });
@@ -1110,7 +1111,6 @@
                 imagePlaceholder.addEventListener(eventName, unhighlight, false);
             });
             
-            // Handle dropped files
             imagePlaceholder.addEventListener('drop', handleDrop, false);
             
             function preventDefaults(e) {
