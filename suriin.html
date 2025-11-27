@@ -277,6 +277,25 @@
             transition: width 0.3s ease;
         }
 
+        /* Additional style for the info link */
+        .info-link {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #e6f7ff;
+            border-radius: 8px;
+            border-left: 4px solid #1890ff;
+        }
+
+        .info-link a {
+            color: #1890ff;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .info-link a:hover {
+            text-decoration: underline;
+        }
+
         /* Full Width Bottom Navigation */
         .bottom-nav {
             position: fixed;
@@ -414,6 +433,14 @@
             <div class="treatment-guide" id="pestTreatment" style="display: none;">
                 <h4>Rekomendadong Treatment:</h4>
                 <ol class="treatment-steps" id="pestTreatmentSteps"></ol>
+                <!-- Added link for pest information -->
+                <div class="info-link" id="pestInfoLink" style="display: none;">
+                    <strong>💡 Para sa karagdagang impormasyon:</strong><br>
+                    Bisitahin ang link na ito para sa mas-maraming impormasyon: 
+                    <a href="http://www.knowledgebank.irri.org/step-by-step-production/growth/pests-and-diseases" target="_blank">
+                        http://www.knowledgebank.irri.org/step-by-step-production/growth/pests-and-diseases
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -442,7 +469,7 @@
         // ======================
         // COLAB BACKEND CONFIGURATION
         // ======================
-        const COLAB_URL = 'https://wispiest-saturatedly-lula.ngrok-free.dev';
+        const COLAB_URL = 'https://wispiest-saturatedly-lula.ngrok-free.app';
 
         // Disease and pest information database
         const diseaseDatabase = {
@@ -551,18 +578,21 @@
             'Healthy': {
                 description: 'Walang nakikitang peste',
                 treatment: [
-                    'Ipagpatuloy ang preventive measures',
+                    'Huwag gumamit ng sobra-sobrang fertilizer',
                     'Magpatuloy sa regular na monitoring',
                     'Panatilihin ang field sanitation',
                     'Mag-practice ng crop rotation',
-                    'Gumamit ng resistant varieties'
+                    'Gumamit ng resistant varieties',
+                    'Siguraduhing gagamit ng malinis na seeds'
                 ]
             },
             'Insects': {
                 description: 'May mga insekto o peste',
                 treatment: [
+                    'Siguraduhing malinis ang mga equipment',
+                    'Siguraduhing malinis ang mga buto at pananim',
                     'Kilalanin ang specific na peste',
-                    'Gumamit ng appropriate insecticides',
+                    'Kung gagamit ng pesticide, huwag gumamit kung mas-bata pa sa 40 araw ang tanim',
                     'Mag-practice ng integrated pest management',
                     'Gamitan ng biological controls',
                     'Mag-install ng pest traps'
@@ -802,6 +832,7 @@
             const confidenceText = document.getElementById('pestConfidenceText');
             const treatmentGuide = document.getElementById('pestTreatment');
             const treatmentSteps = document.getElementById('pestTreatmentSteps');
+            const pestInfoLink = document.getElementById('pestInfoLink');
             
             const pestInfo = pestDatabase[prediction.pest];
             
@@ -812,12 +843,16 @@
                     <em>${pestInfo.description}</em>
                     ${prediction.modelUsed ? `<br><small style="color: #666;">Model: ${prediction.modelUsed}</small>` : ''}
                 `;
+                // Hide the info link if no pests detected
+                pestInfoLink.style.display = 'none';
             } else {
                 pestResult.innerHTML = `
                     <strong style="color: #ff6b6b;">⚠ May Peste na Insekto</strong><br>
                     <em>${pestInfo.description}</em>
                     ${prediction.modelUsed ? `<br><small style="color: #666;">Model: ${prediction.modelUsed}</small>` : ''}
                 `;
+                // Show the info link when pests are detected
+                pestInfoLink.style.display = 'block';
             }
             
             // Display confidence
