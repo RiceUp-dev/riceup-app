@@ -718,10 +718,17 @@
                 <div class="form-group">
                     <label for="rice-variety">Uri ng Palay</label>
                     <select id="rice-variety">
-                        <option value="ir64">IR64 (90-100 araw)</option>
-                        <option value="rc222">RC222 (100-110 araw)</option>
-                        <option value="psbrc18">PSB Rc18 (110-120 araw)</option>
-                        <option value="nsicrc222">NSIC Rc222 (115-125 araw)</option>
+                        <option value="ir64">IR64</option>
+                        <option value="rc216">RC216</option>
+                        <option value="psbrc18">PSB Rc18</option>
+                        <option value="nsicrc222">NSIC Rc222</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="planting-method">Paraan ng Pagtatanim</label>
+                    <select id="planting-method">
+                        <option value="wet-seeded">Wet-seeded</option>
+                        <option value="transplanted">Transplanted</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -799,12 +806,36 @@
         let currentUser = null;
         let activityToDelete = null;
         
-        // Rice variety growth periods (in days)
+        // Rice variety growth periods (in days) based on planting method
         const riceVarieties = {
-            'ir64': { name: 'IR64', days: 95 },
-            'rc222': { name: 'RC222', days: 105 },
-            'psbrc18': { name: 'PSB Rc18', days: 115 },
-            'nsicrc222': { name: 'NSIC Rc222', days: 120 }
+            'ir64': { 
+                name: 'IR64', 
+                days: {
+                    'wet-seeded': 111,
+                    'transplanted': 117
+                }
+            },
+            'rc216': { 
+                name: 'RC216', 
+                days: {
+                    'wet-seeded': 104,
+                    'transplanted': 112
+                }
+            },
+            'psbrc18': { 
+                name: 'PSB Rc18', 
+                days: {
+                    'wet-seeded': 123,
+                    'transplanted': 130
+                }
+            },
+            'nsicrc222': { 
+                name: 'NSIC Rc222', 
+                days: {
+                    'wet-seeded': 106,
+                    'transplanted': 114
+                }
+            }
         };
         
         // CORRECTED Optimal planting dates for rice in the Philippines
@@ -1154,6 +1185,7 @@
         // Save planting activity
         async function savePlanting() {
             const variety = document.getElementById('rice-variety').value;
+            const method = document.getElementById('planting-method').value;
             const area = document.getElementById('plant-area').value;
             
             const activity = {
@@ -1161,8 +1193,10 @@
                 date: selectedDate.toISOString(),
                 type: 'planting',
                 variety: variety,
+                method: method,
                 area: area,
-                varietyName: riceVarieties[variety].name
+                varietyName: riceVarieties[variety].name,
+                methodName: method === 'wet-seeded' ? 'Wet-seeded' : 'Transplanted'
             };
             
             try {
@@ -1264,7 +1298,7 @@
                 `;
                 
                 if (activity.type === 'planting') {
-                    activityHTML += `- ${activity.varietyName} (${activity.area} ektarya)`;
+                    activityHTML += `- ${activity.varietyName} (${activity.methodName}, ${activity.area} ektarya)`;
                 } else if (activity.type === 'watering') {
                     activityHTML += `- ${activity.amount} litro (${activity.method})`;
                 } else if (activity.type === 'harvest') {
@@ -1341,13 +1375,13 @@
             }, plantingActivities[0]);
             
             const plantingDate = new Date(latestPlanting.date);
-            const growthDays = riceVarieties[latestPlanting.variety].days;
+            const growthDays = riceVarieties[latestPlanting.variety].days[latestPlanting.method];
             const harvestDate = new Date(plantingDate);
             harvestDate.setDate(plantingDate.getDate() + growthDays);
             
             predictionText.innerHTML = `
                 Batay sa iyong huling pagtatanim ng <strong>${latestPlanting.varietyName}</strong> 
-                noong ${plantingDate.toLocaleDateString('en-PH', { 
+                (${latestPlanting.methodName}) noong ${plantingDate.toLocaleDateString('en-PH', { 
                     year: 'numeric', 
                     month: 'long', 
                     day: 'numeric' 
