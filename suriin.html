@@ -477,9 +477,9 @@
 
     <script>
         // ======================
-        // COLAB BACKEND CONFIGURATION
+        // COLAB BACKEND CONFIGURATION - FIXED URL
         // ======================
-        const COLAB_URL = 'https://wispiest-saturatedly-lula.ngrok-free.app';
+        const COLAB_URL = 'https://wispiest-saturatedly-lula.ngrok-free.dev';
 
         // Disease and pest information database
         const diseaseDatabase = {
@@ -586,7 +586,6 @@
 
         const pestDatabase = {
             'Healthy': {
-                detection: 'Walang Peste na Nakikita',
                 description: 'Walang nakikitang peste',
                 treatment: [
                     'Huwag gumamit ng sobra-sobrang fertilizer',
@@ -598,7 +597,6 @@
                 ]
             },
             'Insects': {
-                detection: 'May Peste sa Halaman',
                 description: 'May mga insekto o peste',
                 treatment: [
                     'Siguraduhing malinis ang mga equipment',
@@ -848,10 +846,10 @@
             
             const pestInfo = pestDatabase[prediction.pest];
             
-            // Display main result with description on next line
+            // Display main result with proper formatting
             if (!prediction.hasPest) {
                 pestResult.innerHTML = `
-                    <strong style="color: #6B8E23;">✓ ${pestInfo.detection}</strong>
+                    <strong style="color: #6B8E23;">✓ Walang Peste na Nakikita</strong>
                     <div class="pest-description">${pestInfo.description}</div>
                     ${prediction.modelUsed ? `<small style="color: #666;">Model: ${prediction.modelUsed}</small>` : ''}
                 `;
@@ -859,7 +857,7 @@
                 pestInfoLink.style.display = 'none';
             } else {
                 pestResult.innerHTML = `
-                    <strong style="color: #ff6b6b;">⚠ ${pestInfo.detection}</strong>
+                    <strong style="color: #ff6b6b;">⚠ May Peste sa Halaman</strong>
                     <div class="pest-description">${pestInfo.description}</div>
                     ${prediction.modelUsed ? `<small style="color: #666;">Model: ${prediction.modelUsed}</small>` : ''}
                 `;
