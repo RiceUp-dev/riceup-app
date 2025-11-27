@@ -382,6 +382,15 @@
             background-color: #bbb;
         }
 
+        .btn-danger {
+            background-color: #ff6b6b;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #ff5252;
+        }
+
         .activities-list {
             margin-top: 30px;
         }
@@ -449,6 +458,77 @@
         .harvest-prediction h3 {
             margin-bottom: 10px;
             color: #5C4033;
+        }
+
+        /* Confirmation Modal Styles */
+        .confirmation-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 200;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .confirmation-content {
+            background-color: white;
+            border-radius: 15px;
+            padding: 25px;
+            width: 90%;
+            max-width: 350px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .confirmation-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #5C4033;
+        }
+
+        .confirmation-message {
+            margin-bottom: 25px;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        .confirmation-actions {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .confirmation-btn {
+            padding: 10px 25px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            min-width: 80px;
+        }
+
+        .btn-yes {
+            background-color: #ff6b6b;
+            color: white;
+        }
+
+        .btn-yes:hover {
+            background-color: #ff5252;
+        }
+
+        .btn-no {
+            background-color: #6B8E23;
+            color: white;
+        }
+
+        .btn-no:hover {
+            background-color: #5C4033;
         }
 
         /* Full Width Bottom Navigation */
@@ -615,6 +695,7 @@
         </a>
     </nav>
 
+    <!-- Activity Modal -->
     <div class="activity-modal" id="activity-modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -695,6 +776,18 @@
         </div>
     </div>
 
+    <!-- Confirmation Modal -->
+    <div class="confirmation-modal" id="confirmation-modal">
+        <div class="confirmation-content">
+            <h3 class="confirmation-title">Kumpirmasyon</h3>
+            <p class="confirmation-message">Sigurado na bang tatanggalin ang record na ito?</p>
+            <div class="confirmation-actions">
+                <button class="confirmation-btn btn-yes" id="confirm-yes">Oo</button>
+                <button class="confirmation-btn btn-no" id="confirm-no">Hindi</button>
+            </div>
+        </div>
+    </div>
+
     <footer>
         <p>RiceUp - Kalendaryo ng Pagsasaka &copy; 2025</p>
     </footer>
@@ -704,6 +797,7 @@
         let currentDate = new Date(2025, 0, 1);
         let selectedDate = null;
         let currentUser = null;
+        let activityToDelete = null;
         
         // Rice variety growth periods (in days)
         const riceVarieties = {
@@ -746,6 +840,9 @@
         const activitiesContainer = document.getElementById('activities-container');
         const predictionText = document.getElementById('prediction-text');
         const loadingActivities = document.getElementById('loadingActivities');
+        const confirmationModal = document.getElementById('confirmation-modal');
+        const confirmYesButton = document.getElementById('confirm-yes');
+        const confirmNoButton = document.getElementById('confirm-no');
         
         // Wait for Firebase to initialize
         let firebaseReady = false;
@@ -862,6 +959,10 @@
             document.getElementById('save-plant').addEventListener('click', savePlanting);
             document.getElementById('save-water').addEventListener('click', saveWatering);
             document.getElementById('save-harvest').addEventListener('click', saveHarvest);
+            
+            // Confirmation modal buttons
+            confirmYesButton.addEventListener('click', confirmDelete);
+            confirmNoButton.addEventListener('click', cancelDelete);
         }
         
         // Render the calendar for the current month
@@ -1184,18 +1285,44 @@
             
             // Add event listeners to delete buttons
             document.querySelectorAll('.delete-activity').forEach(button => {
-                button.addEventListener('click', async function() {
+                button.addEventListener('click', function() {
                     const activityId = parseInt(this.getAttribute('data-id'));
-                    try {
-                        await deleteActivityFromFirebase(activityId);
-                        await renderCalendar();
-                        await updateActivitiesList();
-                        updateHarvestPrediction();
-                    } catch (error) {
-                        alert('Error deleting activity: ' + error.message);
-                    }
+                    showDeleteConfirmation(activityId);
                 });
             });
+        }
+        
+        // Show delete confirmation modal
+        function showDeleteConfirmation(activityId) {
+            activityToDelete = activityId;
+            confirmationModal.style.display = 'flex';
+        }
+        
+        // Confirm delete action
+        async function confirmDelete() {
+            if (activityToDelete) {
+                try {
+                    await deleteActivityFromFirebase(activityToDelete);
+                    await renderCalendar();
+                    await updateActivitiesList();
+                    updateHarvestPrediction();
+                    closeConfirmationModal();
+                } catch (error) {
+                    alert('Error deleting activity: ' + error.message);
+                    closeConfirmationModal();
+                }
+            }
+        }
+        
+        // Cancel delete action
+        function cancelDelete() {
+            closeConfirmationModal();
+        }
+        
+        // Close confirmation modal
+        function closeConfirmationModal() {
+            confirmationModal.style.display = 'none';
+            activityToDelete = null;
         }
         
         // Update harvest prediction
