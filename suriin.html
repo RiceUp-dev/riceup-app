@@ -200,7 +200,8 @@
             border-radius: 10px;
             min-height: 60px;
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            align-items: flex-start;
         }
 
         .confidence-bar {
@@ -294,6 +295,15 @@
 
         .info-link a:hover {
             text-decoration: underline;
+        }
+
+        /* Style for pest description */
+        .pest-description {
+            margin-top: 8px;
+            font-style: italic;
+            color: #666;
+            padding-left: 10px;
+            border-left: 2px solid #ccc;
         }
 
         /* Full Width Bottom Navigation */
@@ -576,6 +586,7 @@
 
         const pestDatabase = {
             'Healthy': {
+                detection: 'Walang Peste na Nakikita',
                 description: 'Walang nakikitang peste',
                 treatment: [
                     'Huwag gumamit ng sobra-sobrang fertilizer',
@@ -587,15 +598,16 @@
                 ]
             },
             'Insects': {
+                detection: 'May Peste sa Halaman',
                 description: 'May mga insekto o peste',
                 treatment: [
                     'Siguraduhing malinis ang mga equipment',
                     'Siguraduhing malinis ang mga buto at pananim',
+                    'Kilalanin ang specific na peste',
+                    'Kung gagamit ng pesticide, huwag gumamit kung mas-bata pa sa 40 araw ang tanim',
                     'Mag-practice ng integrated pest management',
                     'Gamitan ng biological controls',
-                    'Mag-install ng pest traps',
-                    'Kilalanin ang specific na peste',
-                    'Kung gagamit ng pesticide, huwag gumamit kung mas-bata pa sa 40 araw ang tanim'
+                    'Mag-install ng pest traps'
                 ]
             }
         };
@@ -836,20 +848,20 @@
             
             const pestInfo = pestDatabase[prediction.pest];
             
-            // Display main result
+            // Display main result with description on next line
             if (!prediction.hasPest) {
                 pestResult.innerHTML = `
-                    <strong style="color: #6B8E23;">✓ Walang Peste</strong><br>
-                    <em>${pestInfo.description}</em>
-                    ${prediction.modelUsed ? `<br><small style="color: #666;">Model: ${prediction.modelUsed}</small>` : ''}
+                    <strong style="color: #6B8E23;">✓ ${pestInfo.detection}</strong>
+                    <div class="pest-description">${pestInfo.description}</div>
+                    ${prediction.modelUsed ? `<small style="color: #666;">Model: ${prediction.modelUsed}</small>` : ''}
                 `;
                 // Hide the info link if no pests detected
                 pestInfoLink.style.display = 'none';
             } else {
                 pestResult.innerHTML = `
-                    <strong style="color: #ff6b6b;">⚠ May Peste na Insekto</strong><br>
-                    <em>${pestInfo.description}</em>
-                    ${prediction.modelUsed ? `<br><small style="color: #666;">Model: ${prediction.modelUsed}</small>` : ''}
+                    <strong style="color: #ff6b6b;">⚠ ${pestInfo.detection}</strong>
+                    <div class="pest-description">${pestInfo.description}</div>
+                    ${prediction.modelUsed ? `<small style="color: #666;">Model: ${prediction.modelUsed}</small>` : ''}
                 `;
                 // Show the info link when pests are detected
                 pestInfoLink.style.display = 'block';
@@ -921,4 +933,3 @@
     </script>
 </body>
 </html>
-
