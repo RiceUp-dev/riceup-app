@@ -545,9 +545,17 @@
 
     <script>
         // ======================
-        // COLAB BACKEND CONFIGURATION - FIXED URL
+        // COLAB BACKEND CONFIGURATION - TESTING DIFFERENT URL FORMATS
         // ======================
-        const COLAB_URL = 'https://wispiest-saturatedly-lula.ngrok-free.app';
+        const COLAB_URLS = [
+            'https://wispiest-saturatedly-lula.ngrok-free.app',
+            'https://wispiest-saturatedly-lula.ngrok-free.app/',
+            'http://wispiest-saturatedly-lula.ngrok-free.app',
+            'http://wispiest-saturatedly-lula.ngrok-free.app/'
+        ];
+        
+        let currentColabUrl = COLAB_URLS[0];
+        let backendConnected = false;
 
         // Disease and pest information database - UPDATED
         const diseaseDatabase = {
@@ -698,6 +706,40 @@
                     window.location.href = '/';
                 }
             });
+            
+            // Test backend connection on startup
+            testBackendConnection();
+        }
+
+        // Test backend connection
+        async function testBackendConnection() {
+            console.log('🔍 Testing backend connection...');
+            
+            for (let url of COLAB_URLS) {
+                try {
+                    console.log(`Testing URL: ${url}`);
+                    const response = await fetch(`${url}/predict/pest`, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({ test: true })
+                    });
+                    
+                    if (response.ok || response.status === 405) { // 405 is Method Not Allowed, but means server is reachable
+                        currentColabUrl = url;
+                        backendConnected = true;
+                        console.log(`✅ Backend connected successfully: ${url}`);
+                        break;
+                    }
+                } catch (error) {
+                    console.log(`❌ Failed to connect to ${url}:`, error.message);
+                }
+            }
+            
+            if (!backendConnected) {
+                console.log('❌ All backend connection attempts failed. Using simulation mode.');
+            }
         }
 
         // Set the current mode (disease or pest)
@@ -737,7 +779,7 @@
                 disease: diseaseResult,
                 pest: pestResult,
                 image: imageData,
-                backendUsed: 'Colab AI'
+                backendUsed: backendConnected ? 'Colab AI' : 'Simulation'
             };
             
             try {
@@ -837,7 +879,7 @@
             }
         }
 
-        // Analyze image for pest detection - RESTORED BACKEND CONNECTION
+        // Analyze image for pest detection - IMPROVED BACKEND CONNECTION
         async function analyzeImageForPest(file, imageData) {
             const loadingAnalysis = document.getElementById('loadingAnalysis');
             const progressBar = document.getElementById('analysisProgressBar');
@@ -845,30 +887,55 @@
             loadingAnalysis.style.display = 'block';
             progressBar.style.width = '0%';
             
+            let pestResult;
+            
             try {
                 progressBar.style.width = '30%';
                 
-                const formData = new FormData();
-                formData.append('image', file);
-                
-                console.log('📡 Sending image to Colab backend for pest detection...');
-                
-                progressBar.style.width = '60%';
-                
-                // Send to Colab backend for pest detection - RESTORED
-                const pestResponse = await fetch(`${COLAB_URL}/predict/pest`, {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                console.log('📨 Response status:', pestResponse.status);
-                
-                if (!pestResponse.ok) {
-                    throw new Error(`Colab API error: ${pestResponse.status}`);
+                if (backendConnected) {
+                    console.log('🔄 Using Colab backend for pest detection...');
+                    
+                    const formData = new FormData();
+                    formData.append('image', file);
+                    
+                    console.log('📡 Sending to:', `${currentColabUrl}/predict/pest`);
+                    
+                    progressBar.style.width = '60%';
+                    
+                    // Send to Colab backend for pest detection
+                    const pestResponse = await fetch(`${currentColabUrl}/predict/pest`, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'Accept': 'application/json',
+                            // Add CORS headers
+                            'Access-Control-Allow-Origin': '*'
+                        }
+                    });
+                    
+                    console.log('📨 Response status:', pestResponse.status);
+                    console.log('📨 Response headers:', pestResponse.headers);
+                    
+                    if (!pestResponse.ok) {
+                        throw new Error(`Colab API error: ${pestResponse.status} ${pestResponse.statusText}`);
+                    }
+                    
+                    const responseText = await pestResponse.text();
+                    console.log('📨 Response text:', responseText);
+                    
+                    try {
+                        pestResult = JSON.parse(responseText);
+                        console.log('🎯 Pest detection result:', pestResult);
+                        pestResult.modelUsed = 'Colab AI';
+                    } catch (parseError) {
+                        console.error('❌ JSON parse error:', parseError);
+                        throw new Error('Invalid JSON response from server');
+                    }
+                    
+                } else {
+                    console.log('🔄 Backend not connected, using simulation...');
+                    pestResult = simulatePestPrediction();
                 }
-                
-                const pestResult = await pestResponse.json();
-                console.log('🎯 Pest detection result:', pestResult);
                 
                 progressBar.style.width = '100%';
                 
@@ -886,11 +953,15 @@
                 loadingAnalysis.style.display = 'none';
                 
                 // Fallback to simulation
-                const pestResult = simulatePestPrediction();
+                pestResult = simulatePestPrediction();
                 displayPestResult(pestResult);
                 // Only show pest result container
                 document.getElementById('diseaseResultContainer').style.display = 'none';
                 document.getElementById('pestResultContainer').style.display = 'block';
+                
+                // Show error message to user
+                const pestResultElement = document.getElementById('pestResult');
+                pestResultElement.innerHTML += `<br><small style="color: #ff6b6b;">⚠ Backend error: ${error.message}. Using simulation.</small>`;
             }
         }
 
@@ -984,7 +1055,7 @@
             let pestInfo;
             let hasPest;
             let confidence;
-            let modelUsed = prediction.modelUsed || 'Colab AI';
+            let modelUsed = prediction.modelUsed || 'Simulation';
             
             if (prediction.pest) {
                 // Backend response format
