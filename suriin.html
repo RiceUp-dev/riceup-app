@@ -121,6 +121,37 @@
             border-radius: 8px;
         }
 
+        .mode-selection {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .mode-button {
+            padding: 12px 20px;
+            border-radius: 25px;
+            border: 2px solid #6B8E23;
+            background-color: white;
+            color: #5C4033;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex: 1;
+            max-width: 200px;
+            text-align: center;
+        }
+
+        .mode-button.active {
+            background-color: #6B8E23;
+            color: white;
+        }
+
+        .mode-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
         .action-containers {
             display: flex;
             justify-content: center;
@@ -373,6 +404,16 @@
                 height: 90px;
             }
             
+            .mode-selection {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .mode-button {
+                max-width: 100%;
+                width: 100%;
+            }
+            
             .action-containers {
                 flex-direction: row;
                 gap: 15px;
@@ -421,6 +462,16 @@
                 </div>
             </div>
             
+            <!-- Mode Selection Buttons -->
+            <div class="mode-selection">
+                <button class="mode-button active" id="diseaseModeButton" onclick="setMode('disease')">
+                    Suriin ang Sakit
+                </button>
+                <button class="mode-button" id="pestModeButton" onclick="setMode('pest')">
+                    Suriin ang Peste
+                </button>
+            </div>
+            
             <div class="action-containers">
                 <div class="action-container camera-container" onclick="openCamera()">
                     <!-- Text removed -->
@@ -432,7 +483,7 @@
             <p class="upload-instructions">Pumili ng isang paraan upang mag-upload ng larawan ng iyong palay</p>
         </div>
 
-        <div class="result-container">
+        <div class="result-container" id="diseaseResultContainer">
             <div class="result-title">Resulta sa Sakit ng Palay</div>
             <div class="result-content" id="diseaseResult">
                 Hindi pa nakakakita ng resulta. Mangyaring mag-upload ng imahe ng palay.
@@ -448,7 +499,7 @@
             </div>
         </div>
 
-        <div class="result-container">
+        <div class="result-container" id="pestResultContainer">
             <div class="result-title">Resulta sa Peste ng Palay</div>
             <div class="result-content" id="pestResult">
                 Hindi pa nakakakita ng resulta. Mangyaring mag-upload ng imahe ng palay.
@@ -624,6 +675,7 @@
 
         let currentUser = null;
         let firebaseReady = false;
+        let currentMode = 'disease'; // Default mode
 
         // Wait for Firebase to initialize
         const firebaseCheck = setInterval(() => {
@@ -646,6 +698,31 @@
                     window.location.href = '/';
                 }
             });
+        }
+
+        // Set the current mode (disease or pest)
+        function setMode(mode) {
+            currentMode = mode;
+            
+            // Update button styles
+            const diseaseButton = document.getElementById('diseaseModeButton');
+            const pestButton = document.getElementById('pestModeButton');
+            
+            if (mode === 'disease') {
+                diseaseButton.classList.add('active');
+                pestButton.classList.remove('active');
+            } else {
+                diseaseButton.classList.remove('active');
+                pestButton.classList.add('active');
+            }
+            
+            // Update instructions based on mode
+            const instructions = document.querySelector('.upload-instructions');
+            if (mode === 'disease') {
+                instructions.textContent = 'Pumili ng isang paraan upang mag-upload ng larawan ng iyong palay para sa pagsusuri ng sakit';
+            } else {
+                instructions.textContent = 'Pumili ng isang paraan upang mag-upload ng larawan ng iyong palay para sa pagsusuri ng peste';
+            }
         }
 
         // Save analysis result to user history
@@ -712,14 +789,56 @@
                 uploadedImage.style.display = 'block';
                 noImageText.style.display = 'none';
                 
-                // Analyze image with Colab backend
-                analyzeImageWithColab(file, e.target.result);
+                // Analyze image based on current mode
+                if (currentMode === 'disease') {
+                    analyzeImageForDisease(file, e.target.result);
+                } else {
+                    analyzeImageForPest(file, e.target.result);
+                }
             }
             reader.readAsDataURL(file);
         }
 
-        // Main analysis function using Colab backend
-        async function analyzeImageWithColab(file, imageData) {
+        // Analyze image for disease classification
+        async function analyzeImageForDisease(file, imageData) {
+            const loadingAnalysis = document.getElementById('loadingAnalysis');
+            const progressBar = document.getElementById('analysisProgressBar');
+            
+            loadingAnalysis.style.display = 'block';
+            progressBar.style.width = '0%';
+            
+            try {
+                progressBar.style.width = '30%';
+                
+                // Simulate disease detection (since we only have pest model)
+                const diseaseResult = simulateDiseasePrediction();
+                
+                progressBar.style.width = '100%';
+                
+                setTimeout(() => {
+                    loadingAnalysis.style.display = 'none';
+                    displayDiseaseResult(diseaseResult);
+                    // Only show disease result container
+                    document.getElementById('diseaseResultContainer').style.display = 'block';
+                    document.getElementById('pestResultContainer').style.display = 'none';
+                    saveAnalysisToHistory(imageData, diseaseResult, null);
+                }, 500);
+                
+            } catch (error) {
+                console.error('❌ Disease analysis error:', error);
+                loadingAnalysis.style.display = 'none';
+                
+                // Fallback to simulation
+                const diseaseResult = simulateDiseasePrediction();
+                displayDiseaseResult(diseaseResult);
+                // Only show disease result container
+                document.getElementById('diseaseResultContainer').style.display = 'block';
+                document.getElementById('pestResultContainer').style.display = 'none';
+            }
+        }
+
+        // Analyze image for pest detection
+        async function analyzeImageForPest(file, imageData) {
             const loadingAnalysis = document.getElementById('loadingAnalysis');
             const progressBar = document.getElementById('analysisProgressBar');
             
@@ -732,7 +851,7 @@
                 const formData = new FormData();
                 formData.append('image', file);
                 
-                console.log('📡 Sending image to Colab backend...');
+                console.log('📡 Sending image to Colab backend for pest detection...');
                 
                 progressBar.style.width = '60%';
                 
@@ -751,29 +870,27 @@
                 const pestResult = await pestResponse.json();
                 console.log('🎯 Pest detection result:', pestResult);
                 
-                progressBar.style.width = '80%';
-                
-                // Simulate disease detection (since we only have pest model)
-                const diseaseResult = simulateDiseasePrediction();
-                
                 progressBar.style.width = '100%';
                 
                 setTimeout(() => {
                     loadingAnalysis.style.display = 'none';
-                    displayDiseaseResult(diseaseResult);
                     displayPestResult(pestResult);
-                    saveAnalysisToHistory(imageData, diseaseResult, pestResult);
+                    // Only show pest result container
+                    document.getElementById('diseaseResultContainer').style.display = 'none';
+                    document.getElementById('pestResultContainer').style.display = 'block';
+                    saveAnalysisToHistory(imageData, null, pestResult);
                 }, 500);
                 
             } catch (error) {
-                console.error('❌ Colab analysis error:', error);
+                console.error('❌ Pest analysis error:', error);
                 loadingAnalysis.style.display = 'none';
                 
                 // Fallback to simulation
-                const diseaseResult = simulateDiseasePrediction();
                 const pestResult = simulatePestPrediction();
-                displayDiseaseResult(diseaseResult);
                 displayPestResult(pestResult);
+                // Only show pest result container
+                document.getElementById('diseaseResultContainer').style.display = 'none';
+                document.getElementById('pestResultContainer').style.display = 'block';
             }
         }
 
