@@ -47,7 +47,6 @@
     </script>
     
     <style>
-        /* Your existing CSS styles remain the same */
         * {
             margin: 0;
             padding: 0;
@@ -185,14 +184,6 @@
             box-shadow: 0 6px 12px rgba(0,0,0,0.15);
         }
 
-        .action-icon {
-            display: none;
-        }
-
-        .action-text {
-            display: none;
-        }
-
         .camera-container {
             background-image: url('https://uploads.onecompiler.io/4437779jy/4437qj8jp/Camera.jpg');
         }
@@ -309,7 +300,6 @@
             transition: width 0.3s ease;
         }
 
-        /* Additional style for the info link */
         .info-link {
             margin-top: 15px;
             padding: 10px;
@@ -328,7 +318,6 @@
             text-decoration: underline;
         }
 
-        /* Style for pest description */
         .pest-description {
             margin-top: 8px;
             font-style: italic;
@@ -337,7 +326,6 @@
             border-left: 2px solid #ccc;
         }
 
-        /* Reference link style */
         .reference-link {
             margin-top: 10px;
             font-size: 12px;
@@ -353,7 +341,6 @@
             text-decoration: underline;
         }
 
-        /* Full Width Bottom Navigation */
         .bottom-nav {
             position: fixed;
             bottom: 0;
@@ -462,7 +449,6 @@
                 </div>
             </div>
             
-            <!-- Mode Selection Buttons -->
             <div class="mode-selection">
                 <button class="mode-button active" id="diseaseModeButton" onclick="setMode('disease')">
                     Suriin ang Sakit
@@ -473,12 +459,8 @@
             </div>
             
             <div class="action-containers">
-                <div class="action-container camera-container" onclick="openCamera()">
-                    <!-- Text removed -->
-                </div>
-                <div class="action-container gallery-container" onclick="openGallery()">
-                    <!-- Text removed -->
-                </div>
+                <div class="action-container camera-container" onclick="openCamera()"></div>
+                <div class="action-container gallery-container" onclick="openGallery()"></div>
             </div>
             <p class="upload-instructions">Pumili ng isang paraan upang mag-upload ng larawan ng iyong palay para sa pagsusuri ng sakit</p>
         </div>
@@ -511,7 +493,6 @@
             <div class="treatment-guide" id="pestTreatment" style="display: none;">
                 <h4>Rekomendadong Treatment:</h4>
                 <ol class="treatment-steps" id="pestTreatmentSteps"></ol>
-                <!-- Added link for pest information -->
                 <div class="info-link" id="pestInfoLink" style="display: none;">
                     <strong>💡 Para sa karagdagang impormasyon:</strong><br>
                     Bisitahin ang link na ito para sa mas-maraming impormasyon: 
@@ -523,7 +504,6 @@
         </div>
     </div>
 
-    <!-- Full Width Bottom Navigation -->
     <nav class="bottom-nav">
         <a href="kalendaryo.html" class="nav-item">
             <i class="fas fa-calendar-alt nav-icon"></i>
@@ -545,10 +525,9 @@
 
     <script>
         // ======================
-        // COLAB BACKEND CONFIGURATION - USING YOUR .dev DOMAIN
+        // COLAB BACKEND CONFIGURATION
         // ======================
         const COLAB_URL = 'https://wispiest-saturatedly-lula.ngrok-free.dev';
-        let backendConnected = false;
 
         // Disease and pest information database
         const diseaseDatabase = {
@@ -676,7 +655,7 @@
 
         let currentUser = null;
         let firebaseReady = false;
-        let currentMode = 'disease'; // Default mode
+        let currentMode = 'disease';
 
         // Wait for Firebase to initialize
         const firebaseCheck = setInterval(() => {
@@ -695,73 +674,28 @@
                     currentUser = user;
                     console.log('User authenticated for image analysis');
                 } else {
-                    // Redirect to login if not authenticated
                     window.location.href = '/';
                 }
             });
-            
-            // Test backend connection on startup
-            await testBackendConnection();
         }
 
-        // Test backend connection
-        async function testBackendConnection() {
-            console.log('🔍 Testing backend connection...');
-            console.log('Testing URL:', COLAB_URL);
-            
-            try {
-                // Try a simple GET request first to check if server is reachable
-                const testResponse = await fetch(`${COLAB_URL}/`, {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json',
-                    }
-                });
-                
-                console.log('Connection test response status:', testResponse.status);
-                
-                if (testResponse.status === 200 || testResponse.status === 404 || testResponse.status === 405) {
-                    backendConnected = true;
-                    console.log('✅ Backend server is reachable');
-                } else {
-                    console.log('❌ Backend server returned unexpected status:', testResponse.status);
-                }
-            } catch (error) {
-                console.log('❌ Backend connection failed:', error.message);
-                backendConnected = false;
-            }
-            
-            if (!backendConnected) {
-                console.log('⚠️ Using simulation mode for pest detection');
-            }
-        }
-
-        // Set the current mode (disease or pest)
         function setMode(mode) {
             currentMode = mode;
             
-            // Update button styles
             const diseaseButton = document.getElementById('diseaseModeButton');
             const pestButton = document.getElementById('pestModeButton');
             
             if (mode === 'disease') {
                 diseaseButton.classList.add('active');
                 pestButton.classList.remove('active');
+                document.querySelector('.upload-instructions').textContent = 'Pumili ng isang paraan upang mag-upload ng larawan ng iyong palay para sa pagsusuri ng sakit';
             } else {
                 diseaseButton.classList.remove('active');
                 pestButton.classList.add('active');
-            }
-            
-            // Update instructions based on mode
-            const instructions = document.querySelector('.upload-instructions');
-            if (mode === 'disease') {
-                instructions.textContent = 'Pumili ng isang paraan upang mag-upload ng larawan ng iyong palay para sa pagsusuri ng sakit';
-            } else {
-                instructions.textContent = 'Pumili ng isang paraan upang mag-upload ng larawan ng iyong palay para sa pagsusuri ng peste';
+                document.querySelector('.upload-instructions').textContent = 'Pumili ng isang paraan upang mag-upload ng larawan ng iyong palay para sa pagsusuri ng peste';
             }
         }
 
-        // Save analysis result to user history
         async function saveAnalysisToHistory(imageData, diseaseResult, pestResult) {
             if (!firebaseReady || !currentUser) return;
             
@@ -773,7 +707,7 @@
                 disease: diseaseResult,
                 pest: pestResult,
                 image: imageData,
-                backendUsed: backendConnected ? 'Colab AI' : 'Simulation'
+                backendUsed: 'Colab AI'
             };
             
             try {
@@ -825,7 +759,6 @@
                 uploadedImage.style.display = 'block';
                 noImageText.style.display = 'none';
                 
-                // Analyze image based on current mode
                 if (currentMode === 'disease') {
                     analyzeImageForDisease(file, e.target.result);
                 } else {
@@ -835,7 +768,6 @@
             reader.readAsDataURL(file);
         }
 
-        // Analyze image for disease classification
         async function analyzeImageForDisease(file, imageData) {
             const loadingAnalysis = document.getElementById('loadingAnalysis');
             const progressBar = document.getElementById('analysisProgressBar');
@@ -845,35 +777,27 @@
             
             try {
                 progressBar.style.width = '30%';
-                
-                // Simulate disease detection (since we only have pest model)
                 const diseaseResult = simulateDiseasePrediction();
-                
                 progressBar.style.width = '100%';
                 
                 setTimeout(() => {
                     loadingAnalysis.style.display = 'none';
                     displayDiseaseResult(diseaseResult);
-                    // Only show disease result container
                     document.getElementById('diseaseResultContainer').style.display = 'block';
                     document.getElementById('pestResultContainer').style.display = 'none';
                     saveAnalysisToHistory(imageData, diseaseResult, null);
                 }, 500);
                 
             } catch (error) {
-                console.error('❌ Disease analysis error:', error);
+                console.error('Disease analysis error:', error);
                 loadingAnalysis.style.display = 'none';
-                
-                // Fallback to simulation
                 const diseaseResult = simulateDiseasePrediction();
                 displayDiseaseResult(diseaseResult);
-                // Only show disease result container
                 document.getElementById('diseaseResultContainer').style.display = 'block';
                 document.getElementById('pestResultContainer').style.display = 'none';
             }
         }
 
-        // Analyze image for pest detection
         async function analyzeImageForPest(file, imageData) {
             const loadingAnalysis = document.getElementById('loadingAnalysis');
             const progressBar = document.getElementById('analysisProgressBar');
@@ -886,80 +810,47 @@
             try {
                 progressBar.style.width = '30%';
                 
-                if (backendConnected) {
-                    console.log('🔄 Using Colab backend for pest detection...');
-                    
-                    const formData = new FormData();
-                    formData.append('image', file);
-                    
-                    console.log('📡 Sending to:', `${COLAB_URL}/predict/pest`);
-                    console.log('File details:', {
-                        name: file.name,
-                        type: file.type,
-                        size: file.size
-                    });
-                    
-                    progressBar.style.width = '60%';
-                    
-                    // Send to Colab backend for pest detection
-                    const pestResponse = await fetch(`${COLAB_URL}/predict/pest`, {
-                        method: 'POST',
-                        body: formData,
-                        // Don't set Content-Type header for FormData - let browser set it automatically
-                    });
-                    
-                    console.log('📨 Response status:', pestResponse.status);
-                    console.log('📨 Response ok:', pestResponse.ok);
-                    
-                    if (!pestResponse.ok) {
-                        const errorText = await pestResponse.text();
-                        console.error('❌ Server error response:', errorText);
-                        throw new Error(`Server returned ${pestResponse.status}: ${pestResponse.statusText}`);
-                    }
-                    
-                    const responseData = await pestResponse.json();
-                    console.log('🎯 Pest detection result:', responseData);
-                    
-                    pestResult = {
-                        pest: responseData.prediction || responseData.pest,
-                        confidence: responseData.confidence || responseData.probability,
-                        modelUsed: 'Colab AI'
-                    };
-                    
-                } else {
-                    console.log('🔄 Backend not connected, using simulation...');
-                    pestResult = simulatePestPrediction();
+                console.log('Sending image to Colab backend for pest detection...');
+                
+                const formData = new FormData();
+                formData.append('image', file);
+                
+                progressBar.style.width = '60%';
+                
+                const pestResponse = await fetch(`${COLAB_URL}/predict/pest`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                console.log('Response status:', pestResponse.status);
+                
+                if (!pestResponse.ok) {
+                    throw new Error(`Colab API error: ${pestResponse.status}`);
                 }
+                
+                pestResult = await pestResponse.json();
+                console.log('Pest detection result:', pestResult);
                 
                 progressBar.style.width = '100%';
                 
                 setTimeout(() => {
                     loadingAnalysis.style.display = 'none';
                     displayPestResult(pestResult);
-                    // Only show pest result container
                     document.getElementById('diseaseResultContainer').style.display = 'none';
                     document.getElementById('pestResultContainer').style.display = 'block';
                     saveAnalysisToHistory(imageData, null, pestResult);
                 }, 500);
                 
             } catch (error) {
-                console.error('❌ Pest analysis error:', error);
+                console.error('Pest analysis error:', error);
                 loadingAnalysis.style.display = 'none';
-                
-                // Fallback to simulation
                 pestResult = simulatePestPrediction();
                 displayPestResult(pestResult);
-                // Only show pest result container
                 document.getElementById('diseaseResultContainer').style.display = 'none';
                 document.getElementById('pestResultContainer').style.display = 'block';
-                
-                // Show error message to user
-                const pestResultElement = document.getElementById('pestResult');
-                pestResultElement.innerHTML += `<br><small style="color: #ff6b6b;">⚠ Backend error: ${error.message}. Using simulation.</small>`;
             }
         }
 
-        // Simulate disease prediction
         function simulateDiseasePrediction() {
             const diseases = Object.keys(diseaseDatabase);
             const randomDisease = diseases[Math.floor(Math.random() * diseases.length)];
@@ -973,7 +864,6 @@
             };
         }
 
-        // Simulate pest prediction (fallback)
         function simulatePestPrediction() {
             const pests = Object.keys(pestDatabase);
             const randomPest = pests[Math.floor(Math.random() * pests.length)];
@@ -998,7 +888,6 @@
             
             const diseaseInfo = diseaseDatabase[prediction.disease];
             
-            // Display main result
             if (prediction.isHealthy) {
                 diseaseResult.innerHTML = `
                     <strong style="color: #6B8E23;">✓ Malusog na Palay</strong><br>
@@ -1013,13 +902,11 @@
                 `;
             }
             
-            // Display confidence
             confidenceBar.style.display = 'block';
             confidenceFill.style.width = prediction.confidence + '%';
             confidenceText.style.display = 'block';
             confidenceText.textContent = `Kumpiyansa: ${prediction.confidence}%`;
             
-            // Display treatment guide
             treatmentSteps.innerHTML = '';
             diseaseInfo.treatment.forEach(step => {
                 const li = document.createElement('li');
@@ -1027,7 +914,6 @@
                 treatmentSteps.appendChild(li);
             });
             
-            // Display reference link
             if (diseaseInfo.reference) {
                 referenceLink.innerHTML = `<strong>Reference:</strong> <a href="${diseaseInfo.reference}" target="_blank">${diseaseInfo.reference}</a>`;
                 referenceLink.style.display = 'block';
@@ -1036,4 +922,104 @@
             treatmentGuide.style.display = 'block';
         }
 
-        function displayPest
+        function displayPestResult(prediction) {
+            const pestResult = document.getElementById('pestResult');
+            const confidenceBar = document.getElementById('pestConfidenceBar');
+            const confidenceFill = document.getElementById('pestConfidenceFill');
+            const confidenceText = document.getElementById('pestConfidenceText');
+            const treatmentGuide = document.getElementById('pestTreatment');
+            const treatmentSteps = document.getElementById('pestTreatmentSteps');
+            const pestInfoLink = document.getElementById('pestInfoLink');
+            
+            let pestInfo;
+            let hasPest;
+            let confidence;
+            let modelUsed = prediction.modelUsed || 'Colab AI';
+            
+            if (prediction.pest) {
+                pestInfo = pestDatabase[prediction.pest];
+                hasPest = prediction.pest === 'Insects';
+                confidence = prediction.confidence;
+            } else {
+                pestInfo = pestDatabase[prediction.hasPest ? 'Insects' : 'Healthy'];
+                hasPest = prediction.hasPest;
+                confidence = prediction.confidence;
+            }
+            
+            if (!hasPest) {
+                pestResult.innerHTML = `
+                    <strong style="color: #6B8E23;">✓ Walang Peste na Nakikita</strong>
+                    <div class="pest-description">${pestInfo.description}</div>
+                    <small style="color: #666;">Model: ${modelUsed}</small>
+                `;
+                pestInfoLink.style.display = 'none';
+            } else {
+                pestResult.innerHTML = `
+                    <strong style="color: #ff6b6b;">⚠ May Peste sa Halaman</strong>
+                    <div class="pest-description">${pestInfo.description}</div>
+                    <small style="color: #666;">Model: ${modelUsed}</small>
+                `;
+                pestInfoLink.style.display = 'block';
+            }
+            
+            confidenceBar.style.display = 'block';
+            confidenceFill.style.width = confidence + '%';
+            confidenceText.style.display = 'block';
+            confidenceText.textContent = `Kumpiyansa: ${confidence}%`;
+            
+            treatmentSteps.innerHTML = '';
+            pestInfo.treatment.forEach(step => {
+                const li = document.createElement('li');
+                li.textContent = step;
+                treatmentSteps.appendChild(li);
+            });
+            
+            treatmentGuide.style.display = 'block';
+        }
+
+        // Add drag and drop functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const imagePlaceholder = document.getElementById('imagePlaceholder');
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                imagePlaceholder.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                imagePlaceholder.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                imagePlaceholder.addEventListener(eventName, unhighlight, false);
+            });
+            
+            imagePlaceholder.addEventListener('drop', handleDrop, false);
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            function highlight() {
+                imagePlaceholder.style.borderColor = '#6B8E23';
+                imagePlaceholder.style.backgroundColor = '#F8E6B0';
+            }
+            
+            function unhighlight() {
+                imagePlaceholder.style.borderColor = '#ccc';
+                imagePlaceholder.style.backgroundColor = '#F8F0E4';
+            }
+            
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                
+                if (files.length) {
+                    handleImageUpload(files[0]);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
