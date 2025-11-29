@@ -306,6 +306,22 @@
             border-left: 2px solid #ccc;
         }
 
+        /* Reference link style */
+        .reference-link {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .reference-link a {
+            color: #1890ff;
+            text-decoration: none;
+        }
+
+        .reference-link a:hover {
+            text-decoration: underline;
+        }
+
         /* Full Width Bottom Navigation */
         .bottom-nav {
             position: fixed;
@@ -428,6 +444,7 @@
             <div class="treatment-guide" id="diseaseTreatment" style="display: none;">
                 <h4>Rekomendadong Treatment:</h4>
                 <ol class="treatment-steps" id="diseaseTreatmentSteps"></ol>
+                <div class="reference-link" id="diseaseReferenceLink" style="display: none;"></div>
             </div>
         </div>
 
@@ -479,42 +496,40 @@
         // ======================
         // COLAB BACKEND CONFIGURATION - FIXED URL
         // ======================
-        const COLAB_URL = 'https://wispiest-saturatedly-lula.ngrok-free.dev';
+        const COLAB_URL = 'https://wispiest-saturatedly-lula.ngrok-free.app';
 
-        // Disease and pest information database
+        // Disease and pest information database - UPDATED
         const diseaseDatabase = {
             'Bacterial Leaf Blight': {
-                symptoms: 'Mga dilaw na guhit sa mga dahon na nagiging kayumanggi',
+                symptoms: 'Pahabang kayumangging mga guhit.',
                 treatment: [
-                    'Gumamit ng resistant varieties (IR64, PSB Rc82)',
-                    'Iwasan ang sobrang nitrogen fertilizer',
-                    'Mag-aplay ng copper-based bactericides',
-                    'Mag-sanitize ng mga kagamitan',
-                    'Mag-practice ng crop rotation'
+                    'Iwasan ang mga fertilizer na mayaman sa nitrogen.',
+                    'Panatilihing malusog ang mga halaman.',
+                    'I-panahon sa dry season ang pagtatanim.'
                 ],
-                prevention: 'Panatilihin ang tamang spacing at iwasan ang sobrang tubig'
+                prevention: 'Panatilihin ang tamang spacing at iwasan ang sobrang tubig',
+                reference: 'https://www.philrice.gov.ph'
             },
             'Brown Spot': {
-                symptoms: 'Mga bilog na kayumanggi spots na may dilaw na halo',
+                symptoms: 'May brown na pa-bilog na batik-batik sa dahon.',
                 treatment: [
-                    'Gamitan ng fungicides (Mancozeb, Carbendazim)',
-                    'Mag-improve ng soil fertility',
-                    'Gumamit ng silicon-based fertilizers',
-                    'Mag-practice ng field sanitation',
-                    'Iwasan ang water stress'
+                    'Siguraduhing malinis at malusog ang seed na gagamitin.',
+                    'Wag sumobra sa fertilizer.',
+                    'Panatilihing malinis ang lupa.',
+                    'Wag sobra-sobra sa pagtutubig.'
                 ],
-                prevention: 'Balanseng fertilization at tamang water management'
+                prevention: 'Balanseng fertilization at tamang water management',
+                reference: 'https://www.philrice.gov.ph'
             },
             'Leaf Blast': {
-                symptoms: 'Mga diamond-shaped na lesions na may grey centers',
+                symptoms: 'Maliliit na pahabang marka na may brown na border at gray sa gitna.',
                 treatment: [
-                    'Gumamit ng resistant varieties',
-                    'Mag-aplay ng systemic fungicides',
-                    'Iwasan ang sobrang nitrogen',
-                    'Mag-practice ng early planting',
-                    'Gamitan ng biological controls'
+                    'Iwasan ang mga fertilizer na mataas sa nitrogen.',
+                    'I-panahon sa dry season ang pag-tatanim.',
+                    'Wag sumobra sa pagtubig lalo na kung malamig sa gabi.'
                 ],
-                prevention: 'Tamang timing ng planting at balanced nutrition'
+                prevention: 'Tamang timing ng planting at balanced nutrition',
+                reference: 'https://www.philrice.gov.ph'
             },
             'Leaf Scald': {
                 symptoms: 'Mga irregular-shaped lesions na may zonation',
@@ -525,62 +540,59 @@
                     'Mag-sanitize ng planting materials',
                     'Gumamit ng healthy seeds'
                 ],
-                prevention: 'Maayos na drainage at field sanitation'
+                prevention: 'Maayos na drainage at field sanitation',
+                reference: 'http://www.knowledgebank.irri.org'
             },
             'Narrow Brown Leaf Spot': {
-                symptoms: 'Mga makitid na kayumanggi lesions sa mga dahon',
+                symptoms: 'Impeksyon na dulot ng fungus. Batik-batik na kayumangging marka.',
                 treatment: [
-                    'Gamitan ng fungicides kung kinakailangan',
-                    'Mag-improve ng air circulation',
-                    'Iwasan ang makapal na planting',
-                    'Mag-practice ng balanced fertilization',
-                    'Gumamit ng resistant varieties'
+                    'Panatilihing malinis ang lupa at wag hayaan ang mga ligaw na damo.',
+                    'Gumamit ng buto na resistant dito.',
+                    'Siguraduhing balanse ang nutrient ng mga tanim.',
+                    'Gumamit ng fungicides kung kinakailangan.'
                 ],
-                prevention: 'Tamang plant spacing at nutrition management'
+                prevention: 'Tamang plant spacing at nutrition management',
+                reference: 'http://www.knowledgebank.irri.org'
             },
             'Rice Hispa': {
-                symptoms: 'Mga white streaks at tunnels sa mga dahon',
+                symptoms: 'Impeksyon na dulot ng mga iba\'t ibang klase ng insekto dahil sa sobrang ligaw na damo.',
                 treatment: [
-                    'Manual collection ng mga beetles',
-                    'Gamitan ng appropriate insecticides',
-                    'Mag-practice ng field sanitation',
-                    'Gumamit ng light traps',
-                    'Mag-aplay ng neem-based products'
+                    'Iwasan ang sobra-sobrang fertilizer.',
+                    'Iwasan ang pag-tanim sa wet season.',
+                    'Gumamit ng mga natural na pesticide.'
                 ],
-                prevention: 'Regular monitoring at early detection'
+                prevention: 'Regular monitoring at early detection',
+                reference: 'http://www.knowledgebank.irri.org'
             },
             'Sheath Blight': {
-                symptoms: 'Mga oval-shaped lesions sa leaf sheaths',
+                symptoms: 'Batik batik na pa-haba ang kulay ay berdeng-pabrown.',
                 treatment: [
-                    'Gamitan ng recommended fungicides',
-                    'Mag-practice ng proper spacing',
-                    'Iwasan ang sobrang nitrogen',
-                    'Mag-improve ng air circulation',
-                    'Gumamit ng resistant varieties'
+                    'Panatilhing may tamang pagitan ang mga halaman.',
+                    'Iwasan ang mga fertilizer na mayaman sa nitrogen.',
+                    'I-panahon sa hindi ganon ka-init ang pagtatanim.'
                 ],
-                prevention: 'Tamang plant density at water management'
+                prevention: 'Tamang plant density at water management',
+                reference: 'https://www.philrice.gov.ph'
             },
             'Tungro': {
-                symptoms: 'Yellow-orange discoloration at stunted growth',
+                symptoms: 'Impeksyong dala ng green leafhopper. Pa-kahel ang dulo ng mga dahon.',
                 treatment: [
-                    'Gumamit ng resistant varieties',
-                    'Kontrolin ang green leafhopper vectors',
-                    'Mag-practice ng synchronous planting',
-                    'Gamitan ng appropriate insecticides',
-                    'Mag-rouge ng infected plants'
+                    'Tanggalin ang mga halamang infected.',
+                    'Linisin at tanggalin ang mga insekto.',
+                    'Tuyuin ang lupa upang mawala ang mga ligaw na damo.'
                 ],
-                prevention: 'Vector control at resistant varieties'
+                prevention: 'Vector control at resistant varieties',
+                reference: 'https://www.philrice.gov.ph'
             },
             'Healthy Rice Leaf': {
-                symptoms: 'Malusog na berdeng mga dahon',
+                symptoms: 'Panatilihing malusog ang mga tanim.',
                 treatment: [
-                    'Ipagpatuloy ang magandang cultural practices',
-                    'Mag-monitor ng regular para sa early detection',
-                    'Panatilihin ang balanced fertilization',
-                    'I-maintain ang proper water management',
-                    'Mag-practice ng integrated pest management'
+                    'Wag sumobra sa fertilizer.',
+                    'Iwasan ang mga chemical pesticides.',
+                    'Wag sumobra sa pagtubig.'
                 ],
-                prevention: 'Consistent good agricultural practices'
+                prevention: 'Consistent good agricultural practices',
+                reference: 'https://www.philrice.gov.ph'
             }
         };
 
@@ -800,6 +812,7 @@
             const confidenceText = document.getElementById('diseaseConfidenceText');
             const treatmentGuide = document.getElementById('diseaseTreatment');
             const treatmentSteps = document.getElementById('diseaseTreatmentSteps');
+            const referenceLink = document.getElementById('diseaseReferenceLink');
             
             const diseaseInfo = diseaseDatabase[prediction.disease];
             
@@ -831,6 +844,12 @@
                 li.textContent = step;
                 treatmentSteps.appendChild(li);
             });
+            
+            // Display reference link
+            if (diseaseInfo.reference) {
+                referenceLink.innerHTML = `<strong>Reference:</strong> <a href="${diseaseInfo.reference}" target="_blank">${diseaseInfo.reference}</a>`;
+                referenceLink.style.display = 'block';
+            }
             
             treatmentGuide.style.display = 'block';
         }
@@ -931,7 +950,3 @@
     </script>
 </body>
 </html>
-
-
-
-
