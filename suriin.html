@@ -480,7 +480,7 @@
                     <!-- Text removed -->
                 </div>
             </div>
-            <p class="upload-instructions">Pumili ng isang paraan upang mag-upload ng larawan ng iyong palay</p>
+            <p class="upload-instructions">Pumili ng isang paraan upang mag-upload ng larawan ng iyong palay para sa pagsusuri ng sakit</p>
         </div>
 
         <div class="result-container" id="diseaseResultContainer">
@@ -837,7 +837,7 @@
             }
         }
 
-        // Analyze image for pest detection
+        // Analyze image for pest detection - RESTORED BACKEND CONNECTION
         async function analyzeImageForPest(file, imageData) {
             const loadingAnalysis = document.getElementById('loadingAnalysis');
             const progressBar = document.getElementById('analysisProgressBar');
@@ -855,7 +855,7 @@
                 
                 progressBar.style.width = '60%';
                 
-                // Send to Colab backend for pest detection
+                // Send to Colab backend for pest detection - RESTORED
                 const pestResponse = await fetch(`${COLAB_URL}/predict/pest`, {
                     method: 'POST',
                     body: formData
@@ -980,14 +980,30 @@
             const treatmentSteps = document.getElementById('pestTreatmentSteps');
             const pestInfoLink = document.getElementById('pestInfoLink');
             
-            const pestInfo = pestDatabase[prediction.pest];
+            // Handle both backend response format and simulation format
+            let pestInfo;
+            let hasPest;
+            let confidence;
+            let modelUsed = prediction.modelUsed || 'Colab AI';
+            
+            if (prediction.pest) {
+                // Backend response format
+                pestInfo = pestDatabase[prediction.pest];
+                hasPest = prediction.pest === 'Insects';
+                confidence = prediction.confidence;
+            } else {
+                // Simulation format
+                pestInfo = pestDatabase[prediction.hasPest ? 'Insects' : 'Healthy'];
+                hasPest = prediction.hasPest;
+                confidence = prediction.confidence;
+            }
             
             // Display main result with proper formatting
-            if (!prediction.hasPest) {
+            if (!hasPest) {
                 pestResult.innerHTML = `
                     <strong style="color: #6B8E23;">✓ Walang Peste na Nakikita</strong>
                     <div class="pest-description">${pestInfo.description}</div>
-                    ${prediction.modelUsed ? `<small style="color: #666;">Model: ${prediction.modelUsed}</small>` : ''}
+                    <small style="color: #666;">Model: ${modelUsed}</small>
                 `;
                 // Hide the info link if no pests detected
                 pestInfoLink.style.display = 'none';
@@ -995,7 +1011,7 @@
                 pestResult.innerHTML = `
                     <strong style="color: #ff6b6b;">⚠ May Peste sa Halaman</strong>
                     <div class="pest-description">${pestInfo.description}</div>
-                    ${prediction.modelUsed ? `<small style="color: #666;">Model: ${prediction.modelUsed}</small>` : ''}
+                    <small style="color: #666;">Model: ${modelUsed}</small>
                 `;
                 // Show the info link when pests are detected
                 pestInfoLink.style.display = 'block';
@@ -1003,9 +1019,9 @@
             
             // Display confidence
             confidenceBar.style.display = 'block';
-            confidenceFill.style.width = prediction.confidence + '%';
+            confidenceFill.style.width = confidence + '%';
             confidenceText.style.display = 'block';
-            confidenceText.textContent = `Kumpiyansa: ${prediction.confidence}%`;
+            confidenceText.textContent = `Kumpiyansa: ${confidence}%`;
             
             // Display treatment guide
             treatmentSteps.innerHTML = '';
