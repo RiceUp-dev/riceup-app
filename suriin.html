@@ -545,19 +545,12 @@
 
     <script>
         // ======================
-        // COLAB BACKEND CONFIGURATION - TESTING DIFFERENT URL FORMATS
+        // COLAB BACKEND CONFIGURATION - USING YOUR .dev DOMAIN
         // ======================
-        const COLAB_URLS = [
-            'https://wispiest-saturatedly-lula.ngrok-free.app',
-            'https://wispiest-saturatedly-lula.ngrok-free.app/',
-            'http://wispiest-saturatedly-lula.ngrok-free.app',
-            'http://wispiest-saturatedly-lula.ngrok-free.app/'
-        ];
-        
-        let currentColabUrl = COLAB_URLS[0];
+        const COLAB_URL = 'https://wispiest-saturatedly-lula.ngrok-free.dev';
         let backendConnected = false;
 
-        // Disease and pest information database - UPDATED
+        // Disease and pest information database
         const diseaseDatabase = {
             'Bacterial Leaf Blight': {
                 symptoms: 'Pahabang kayumangging mga guhit.',
@@ -708,37 +701,38 @@
             });
             
             // Test backend connection on startup
-            testBackendConnection();
+            await testBackendConnection();
         }
 
         // Test backend connection
         async function testBackendConnection() {
             console.log('🔍 Testing backend connection...');
+            console.log('Testing URL:', COLAB_URL);
             
-            for (let url of COLAB_URLS) {
-                try {
-                    console.log(`Testing URL: ${url}`);
-                    const response = await fetch(`${url}/predict/pest`, {
-                        method: 'POST',
-                        headers: {
-                            'Accept': 'application/json',
-                        },
-                        body: JSON.stringify({ test: true })
-                    });
-                    
-                    if (response.ok || response.status === 405) { // 405 is Method Not Allowed, but means server is reachable
-                        currentColabUrl = url;
-                        backendConnected = true;
-                        console.log(`✅ Backend connected successfully: ${url}`);
-                        break;
+            try {
+                // Try a simple GET request first to check if server is reachable
+                const testResponse = await fetch(`${COLAB_URL}/`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
                     }
-                } catch (error) {
-                    console.log(`❌ Failed to connect to ${url}:`, error.message);
+                });
+                
+                console.log('Connection test response status:', testResponse.status);
+                
+                if (testResponse.status === 200 || testResponse.status === 404 || testResponse.status === 405) {
+                    backendConnected = true;
+                    console.log('✅ Backend server is reachable');
+                } else {
+                    console.log('❌ Backend server returned unexpected status:', testResponse.status);
                 }
+            } catch (error) {
+                console.log('❌ Backend connection failed:', error.message);
+                backendConnected = false;
             }
             
             if (!backendConnected) {
-                console.log('❌ All backend connection attempts failed. Using simulation mode.');
+                console.log('⚠️ Using simulation mode for pest detection');
             }
         }
 
@@ -879,7 +873,7 @@
             }
         }
 
-        // Analyze image for pest detection - IMPROVED BACKEND CONNECTION
+        // Analyze image for pest detection
         async function analyzeImageForPest(file, imageData) {
             const loadingAnalysis = document.getElementById('loadingAnalysis');
             const progressBar = document.getElementById('analysisProgressBar');
@@ -898,39 +892,39 @@
                     const formData = new FormData();
                     formData.append('image', file);
                     
-                    console.log('📡 Sending to:', `${currentColabUrl}/predict/pest`);
+                    console.log('📡 Sending to:', `${COLAB_URL}/predict/pest`);
+                    console.log('File details:', {
+                        name: file.name,
+                        type: file.type,
+                        size: file.size
+                    });
                     
                     progressBar.style.width = '60%';
                     
                     // Send to Colab backend for pest detection
-                    const pestResponse = await fetch(`${currentColabUrl}/predict/pest`, {
+                    const pestResponse = await fetch(`${COLAB_URL}/predict/pest`, {
                         method: 'POST',
                         body: formData,
-                        headers: {
-                            'Accept': 'application/json',
-                            // Add CORS headers
-                            'Access-Control-Allow-Origin': '*'
-                        }
+                        // Don't set Content-Type header for FormData - let browser set it automatically
                     });
                     
                     console.log('📨 Response status:', pestResponse.status);
-                    console.log('📨 Response headers:', pestResponse.headers);
+                    console.log('📨 Response ok:', pestResponse.ok);
                     
                     if (!pestResponse.ok) {
-                        throw new Error(`Colab API error: ${pestResponse.status} ${pestResponse.statusText}`);
+                        const errorText = await pestResponse.text();
+                        console.error('❌ Server error response:', errorText);
+                        throw new Error(`Server returned ${pestResponse.status}: ${pestResponse.statusText}`);
                     }
                     
-                    const responseText = await pestResponse.text();
-                    console.log('📨 Response text:', responseText);
+                    const responseData = await pestResponse.json();
+                    console.log('🎯 Pest detection result:', responseData);
                     
-                    try {
-                        pestResult = JSON.parse(responseText);
-                        console.log('🎯 Pest detection result:', pestResult);
-                        pestResult.modelUsed = 'Colab AI';
-                    } catch (parseError) {
-                        console.error('❌ JSON parse error:', parseError);
-                        throw new Error('Invalid JSON response from server');
-                    }
+                    pestResult = {
+                        pest: responseData.prediction || responseData.pest,
+                        confidence: responseData.confidence || responseData.probability,
+                        modelUsed: 'Colab AI'
+                    };
                     
                 } else {
                     console.log('🔄 Backend not connected, using simulation...');
@@ -1042,115 +1036,4 @@
             treatmentGuide.style.display = 'block';
         }
 
-        function displayPestResult(prediction) {
-            const pestResult = document.getElementById('pestResult');
-            const confidenceBar = document.getElementById('pestConfidenceBar');
-            const confidenceFill = document.getElementById('pestConfidenceFill');
-            const confidenceText = document.getElementById('pestConfidenceText');
-            const treatmentGuide = document.getElementById('pestTreatment');
-            const treatmentSteps = document.getElementById('pestTreatmentSteps');
-            const pestInfoLink = document.getElementById('pestInfoLink');
-            
-            // Handle both backend response format and simulation format
-            let pestInfo;
-            let hasPest;
-            let confidence;
-            let modelUsed = prediction.modelUsed || 'Simulation';
-            
-            if (prediction.pest) {
-                // Backend response format
-                pestInfo = pestDatabase[prediction.pest];
-                hasPest = prediction.pest === 'Insects';
-                confidence = prediction.confidence;
-            } else {
-                // Simulation format
-                pestInfo = pestDatabase[prediction.hasPest ? 'Insects' : 'Healthy'];
-                hasPest = prediction.hasPest;
-                confidence = prediction.confidence;
-            }
-            
-            // Display main result with proper formatting
-            if (!hasPest) {
-                pestResult.innerHTML = `
-                    <strong style="color: #6B8E23;">✓ Walang Peste na Nakikita</strong>
-                    <div class="pest-description">${pestInfo.description}</div>
-                    <small style="color: #666;">Model: ${modelUsed}</small>
-                `;
-                // Hide the info link if no pests detected
-                pestInfoLink.style.display = 'none';
-            } else {
-                pestResult.innerHTML = `
-                    <strong style="color: #ff6b6b;">⚠ May Peste sa Halaman</strong>
-                    <div class="pest-description">${pestInfo.description}</div>
-                    <small style="color: #666;">Model: ${modelUsed}</small>
-                `;
-                // Show the info link when pests are detected
-                pestInfoLink.style.display = 'block';
-            }
-            
-            // Display confidence
-            confidenceBar.style.display = 'block';
-            confidenceFill.style.width = confidence + '%';
-            confidenceText.style.display = 'block';
-            confidenceText.textContent = `Kumpiyansa: ${confidence}%`;
-            
-            // Display treatment guide
-            treatmentSteps.innerHTML = '';
-            pestInfo.treatment.forEach(step => {
-                const li = document.createElement('li');
-                li.textContent = step;
-                treatmentSteps.appendChild(li);
-            });
-            
-            treatmentGuide.style.display = 'block';
-        }
-
-        // Add drag and drop functionality
-        document.addEventListener('DOMContentLoaded', function() {
-            const imagePlaceholder = document.getElementById('imagePlaceholder');
-            
-            // Prevent default drag behaviors
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                imagePlaceholder.addEventListener(eventName, preventDefaults, false);
-                document.body.addEventListener(eventName, preventDefaults, false);
-            });
-            
-            // Highlight drop area when item is dragged over it
-            ['dragenter', 'dragover'].forEach(eventName => {
-                imagePlaceholder.addEventListener(eventName, highlight, false);
-            });
-            
-            ['dragleave', 'drop'].forEach(eventName => {
-                imagePlaceholder.addEventListener(eventName, unhighlight, false);
-            });
-            
-            // Handle dropped files
-            imagePlaceholder.addEventListener('drop', handleDrop, false);
-            
-            function preventDefaults(e) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-            
-            function highlight() {
-                imagePlaceholder.style.borderColor = '#6B8E23';
-                imagePlaceholder.style.backgroundColor = '#F8E6B0';
-            }
-            
-            function unhighlight() {
-                imagePlaceholder.style.borderColor = '#ccc';
-                imagePlaceholder.style.backgroundColor = '#F8F0E4';
-            }
-            
-            function handleDrop(e) {
-                const dt = e.dataTransfer;
-                const files = dt.files;
-                
-                if (files.length) {
-                    handleImageUpload(files[0]);
-                }
-            }
-        });
-    </script>
-</body>
-</html>
+        function displayPest
