@@ -386,26 +386,6 @@
             font-size: 0.8rem;
         }
 
-        .error-message {
-            background-color: #ffe6e6;
-            border: 1px solid #ff6b6b;
-            border-radius: 8px;
-            padding: 10px;
-            margin-top: 10px;
-            color: #d63031;
-            font-size: 14px;
-        }
-
-        .success-message {
-            background-color: #e6ffe6;
-            border: 1px solid #6B8E23;
-            border-radius: 8px;
-            padding: 10px;
-            margin-top: 10px;
-            color: #2d5016;
-            font-size: 14px;
-        }
-
         @media (max-width: 600px) {
             header {
                 height: 90px;
@@ -483,9 +463,6 @@
                 <div class="action-container gallery-container" onclick="openGallery()"></div>
             </div>
             <p class="upload-instructions">Pumili ng isang paraan upang mag-upload ng larawan ng iyong palay para sa pagsusuri ng sakit</p>
-            
-            <!-- Connection Status -->
-            <div id="connectionStatus" style="display: none;"></div>
         </div>
 
         <div class="result-container" id="diseaseResultContainer">
@@ -680,38 +657,6 @@
         let firebaseReady = false;
         let currentMode = 'disease';
 
-        // Test backend connection on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            testBackendConnection();
-        });
-
-        // Test backend connection
-        async function testBackendConnection() {
-            const statusDiv = document.getElementById('connectionStatus');
-            try {
-                console.log('Testing backend connection...');
-                const response = await fetch(`${COLAB_URL}/health`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    statusDiv.innerHTML = `<div class="success-message">✅ Backend connected successfully! Models loaded: ${data.models_loaded}</div>`;
-                    statusDiv.style.display = 'block';
-                    console.log('Backend connection successful:', data);
-                } else {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-            } catch (error) {
-                statusDiv.innerHTML = `<div class="error-message">❌ Backend connection failed: ${error.message}. Using simulation mode.</div>`;
-                statusDiv.style.display = 'block';
-                console.error('Backend connection failed:', error);
-            }
-        }
-
         // Wait for Firebase to initialize
         const firebaseCheck = setInterval(() => {
             if (window.firebase && window.firebase.initialized) {
@@ -835,7 +780,7 @@
             try {
                 progressBar.style.width = '30%';
                 
-                console.log('Sending image to Colab backend for disease classification...');
+                console.log('Sending image to Colab backend for disease detection...');
                 
                 const formData = new FormData();
                 formData.append('image', file);
@@ -850,12 +795,11 @@
                 console.log('Disease response status:', diseaseResponse.status);
                 
                 if (!diseaseResponse.ok) {
-                    const errorText = await diseaseResponse.text();
-                    throw new Error(`Disease API error: ${diseaseResponse.status} - ${errorText}`);
+                    throw new Error(`Colab API error: ${diseaseResponse.status}`);
                 }
                 
                 diseaseResult = await diseaseResponse.json();
-                console.log('Disease classification result:', diseaseResult);
+                console.log('Disease detection result:', diseaseResult);
                 
                 progressBar.style.width = '100%';
                 
@@ -870,12 +814,6 @@
             } catch (error) {
                 console.error('Disease analysis error:', error);
                 loadingAnalysis.style.display = 'none';
-                
-                // Show error to user
-                const statusDiv = document.getElementById('connectionStatus');
-                statusDiv.innerHTML = `<div class="error-message">❌ Disease analysis failed: ${error.message}. Using simulation mode.</div>`;
-                statusDiv.style.display = 'block';
-                
                 diseaseResult = simulateDiseasePrediction();
                 displayDiseaseResult(diseaseResult);
                 document.getElementById('diseaseResultContainer').style.display = 'block';
@@ -910,8 +848,7 @@
                 console.log('Response status:', pestResponse.status);
                 
                 if (!pestResponse.ok) {
-                    const errorText = await pestResponse.text();
-                    throw new Error(`Pest API error: ${pestResponse.status} - ${errorText}`);
+                    throw new Error(`Colab API error: ${pestResponse.status}`);
                 }
                 
                 pestResult = await pestResponse.json();
@@ -930,12 +867,6 @@
             } catch (error) {
                 console.error('Pest analysis error:', error);
                 loadingAnalysis.style.display = 'none';
-                
-                // Show error to user
-                const statusDiv = document.getElementById('connectionStatus');
-                statusDiv.innerHTML = `<div class="error-message">❌ Pest analysis failed: ${error.message}. Using simulation mode.</div>`;
-                statusDiv.style.display = 'block';
-                
                 pestResult = simulatePestPrediction();
                 displayPestResult(pestResult);
                 document.getElementById('diseaseResultContainer').style.display = 'none';
