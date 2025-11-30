@@ -341,6 +341,32 @@
             text-decoration: underline;
         }
 
+        .connection-status {
+            text-align: center;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+
+        .connection-status.connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .connection-status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .connection-status.testing {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
         .bottom-nav {
             position: fixed;
             bottom: 0;
@@ -437,6 +463,11 @@
             <img src="https://uploads.onecompiler.io/4437779jy/4437qj8jp/SuriinTitle.jpg" alt="Suriin ang Palay" class="header-image">
         </header>
 
+        <!-- Connection Status Indicator -->
+        <div class="connection-status" id="connectionStatus" style="display: none;">
+            <i class="fas fa-spinner fa-spin"></i> Sinusuri ang koneksyon sa AI backend...
+        </div>
+
         <div class="image-container">
             <div class="image-placeholder" id="imagePlaceholder">
                 <img id="uploadedImage" src="" alt="Uploaded Image">
@@ -527,7 +558,8 @@
         // ======================
         // COLAB BACKEND CONFIGURATION
         // ======================
-        const COLAB_URL = 'https://wispiest-saturatedly-lula.ngrok-free.app';
+        const COLAB_URL = 'https://wispiest-saturatedly-lula.ngrok-free.dev';
+        let backendConnected = false;
 
         // Disease and pest information database
         const diseaseDatabase = {
@@ -657,6 +689,51 @@
         let firebaseReady = false;
         let currentMode = 'disease';
 
+        // Test backend connection on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            testBackendConnection();
+            initializeDragAndDrop();
+        });
+
+        async function testBackendConnection() {
+            const statusElement = document.getElementById('connectionStatus');
+            statusElement.style.display = 'block';
+            statusElement.className = 'connection-status testing';
+            statusElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sinusuri ang koneksyon sa AI backend...';
+
+            try {
+                console.log('Testing backend connection to:', COLAB_URL);
+                
+                const response = await fetch(`${COLAB_URL}/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                    timeout: 10000
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    backendConnected = true;
+                    statusElement.className = 'connection-status connected';
+                    statusElement.innerHTML = `<i class="fas fa-check-circle"></i> Nakakonekta sa AI Backend! Mga Model: ${data.models_loaded.disease ? 'Sakit' : ''}${data.models_loaded.disease && data.models_loaded.pest ? ' at ' : ''}${data.models_loaded.pest ? 'Peste' : ''}`;
+                    console.log('Backend connection successful:', data);
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                console.error('Backend connection failed:', error);
+                backendConnected = false;
+                statusElement.className = 'connection-status disconnected';
+                statusElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Hindi makakonekta sa AI Backend. Gagamit ng simulation mode.`;
+                
+                // Hide status after 5 seconds
+                setTimeout(() => {
+                    statusElement.style.display = 'none';
+                }, 5000);
+            }
+        }
+
         // Wait for Firebase to initialize
         const firebaseCheck = setInterval(() => {
             if (window.firebase && window.firebase.initialized) {
@@ -707,7 +784,7 @@
                 disease: diseaseResult,
                 pest: pestResult,
                 image: imageData,
-                backendUsed: 'Colab AI'
+                backendUsed: backendConnected ? 'Real AI Model' : 'Simulation'
             };
             
             try {
@@ -780,6 +857,10 @@
             try {
                 progressBar.style.width = '30%';
                 
+                if (!backendConnected) {
+                    throw new Error('Backend not connected');
+                }
+                
                 console.log('Sending image to Colab backend for disease detection...');
                 
                 const formData = new FormData();
@@ -789,7 +870,8 @@
                 
                 const diseaseResponse = await fetch(`${COLAB_URL}/predict/disease`, {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    timeout: 30000
                 });
                 
                 console.log('Disease response status:', diseaseResponse.status);
@@ -814,10 +896,21 @@
             } catch (error) {
                 console.error('Disease analysis error:', error);
                 loadingAnalysis.style.display = 'none';
+                // Show connection status again
+                const statusElement = document.getElementById('connectionStatus');
+                statusElement.style.display = 'block';
+                statusElement.className = 'connection-status disconnected';
+                statusElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> AI Backend Error: ${error.message}. Gagamit ng simulation mode.`;
+                
                 diseaseResult = simulateDiseasePrediction();
                 displayDiseaseResult(diseaseResult);
                 document.getElementById('diseaseResultContainer').style.display = 'block';
                 document.getElementById('pestResultContainer').style.display = 'none';
+                
+                // Hide status after 5 seconds
+                setTimeout(() => {
+                    statusElement.style.display = 'none';
+                }, 5000);
             }
         }
 
@@ -833,6 +926,10 @@
             try {
                 progressBar.style.width = '30%';
                 
+                if (!backendConnected) {
+                    throw new Error('Backend not connected');
+                }
+                
                 console.log('Sending image to Colab backend for pest detection...');
                 
                 const formData = new FormData();
@@ -842,7 +939,8 @@
                 
                 const pestResponse = await fetch(`${COLAB_URL}/predict/pest`, {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    timeout: 30000
                 });
                 
                 console.log('Response status:', pestResponse.status);
@@ -867,10 +965,21 @@
             } catch (error) {
                 console.error('Pest analysis error:', error);
                 loadingAnalysis.style.display = 'none';
+                // Show connection status again
+                const statusElement = document.getElementById('connectionStatus');
+                statusElement.style.display = 'block';
+                statusElement.className = 'connection-status disconnected';
+                statusElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> AI Backend Error: ${error.message}. Gagamit ng simulation mode.`;
+                
                 pestResult = simulatePestPrediction();
                 displayPestResult(pestResult);
                 document.getElementById('diseaseResultContainer').style.display = 'none';
                 document.getElementById('pestResultContainer').style.display = 'block';
+                
+                // Hide status after 5 seconds
+                setTimeout(() => {
+                    statusElement.style.display = 'none';
+                }, 5000);
             }
         }
 
@@ -916,12 +1025,14 @@
                     <strong style="color: #6B8E23;">✓ Malusog na Palay</strong><br>
                     <em>${diseaseInfo.symptoms}</em>
                     ${prediction.modelUsed ? `<br><small style="color: #666;">Model: ${prediction.modelUsed}</small>` : ''}
+                    ${!backendConnected ? `<br><small style="color: #ff6b6b;">⚠ Simulation Mode - Mangyaring suriin ang koneksyon</small>` : ''}
                 `;
             } else {
                 diseaseResult.innerHTML = `
                     <strong style="color: #ff6b6b;">⚠ ${prediction.disease}</strong><br>
                     <em>${diseaseInfo.symptoms}</em>
                     ${prediction.modelUsed ? `<br><small style="color: #666;">Model: ${prediction.modelUsed}</small>` : ''}
+                    ${!backendConnected ? `<br><small style="color: #ff6b6b;">⚠ Simulation Mode - Mangyaring suriin ang koneksyon</small>` : ''}
                 `;
             }
             
@@ -974,6 +1085,7 @@
                     <strong style="color: #6B8E23;">✓ Walang Peste na Nakikita</strong>
                     <div class="pest-description">${pestInfo.description}</div>
                     <small style="color: #666;">Model: ${modelUsed}</small>
+                    ${!backendConnected ? `<br><small style="color: #ff6b6b;">⚠ Simulation Mode - Mangyaring suriin ang koneksyon</small>` : ''}
                 `;
                 pestInfoLink.style.display = 'none';
             } else {
@@ -981,6 +1093,7 @@
                     <strong style="color: #ff6b6b;">⚠ May Peste sa Halaman</strong>
                     <div class="pest-description">${pestInfo.description}</div>
                     <small style="color: #666;">Model: ${modelUsed}</small>
+                    ${!backendConnected ? `<br><small style="color: #ff6b6b;">⚠ Simulation Mode - Mangyaring suriin ang koneksyon</small>` : ''}
                 `;
                 pestInfoLink.style.display = 'block';
             }
@@ -1000,8 +1113,7 @@
             treatmentGuide.style.display = 'block';
         }
 
-        // Add drag and drop functionality
-        document.addEventListener('DOMContentLoaded', function() {
+        function initializeDragAndDrop() {
             const imagePlaceholder = document.getElementById('imagePlaceholder');
             
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -1042,7 +1154,7 @@
                     handleImageUpload(files[0]);
                 }
             }
-        });
+        }
     </script>
 </body>
 </html>
