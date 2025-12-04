@@ -627,9 +627,10 @@
             }
         };
 
+        // UPDATED PEST DATABASE - now uses withInsect/withoutInsect
         const pestDatabase = {
-            'Healthy': {
-                description: 'Walang nakikitang peste',
+            'withoutInsect': {
+                description: 'Walang nakikitang peste sa dahon',
                 treatment: [
                     'Huwag gumamit ng sobra-sobrang fertilizer',
                     'Magpatuloy sa regular na monitoring',
@@ -639,8 +640,8 @@
                     'Siguraduhing gagamit ng malinis na seeds'
                 ]
             },
-            'Insects': {
-                description: 'May mga insekto o peste',
+            'withInsect': {
+                description: 'May mga insekto o peste sa dahon',
                 treatment: [
                     'Siguraduhing malinis ang mga equipment',
                     'Siguraduhing malinis ang mga buto at pananim',
@@ -785,7 +786,6 @@
                 
                 progressBar.style.width = '60%';
                 
-                // SIMPLE FETCH REQUEST - NO COMPLEX ERROR HANDLING
                 const diseaseResponse = await fetch(`${COLAB_URL}/predict/disease`, {
                     method: 'POST',
                     body: formData
@@ -838,7 +838,6 @@
                 
                 progressBar.style.width = '60%';
                 
-                // SIMPLE FETCH REQUEST - NO COMPLEX ERROR HANDLING
                 const pestResponse = await fetch(`${COLAB_URL}/predict/pest`, {
                     method: 'POST',
                     body: formData
@@ -931,14 +930,15 @@
         }
 
         function simulatePestPrediction() {
-            const pests = Object.keys(pestDatabase);
+            // UPDATED: Use withInsect/withoutInsect for simulation
+            const pests = ['withoutInsect', 'withInsect'];
             const randomPest = pests[Math.floor(Math.random() * pests.length)];
             const confidence = (80 + Math.random() * 15).toFixed(1);
             
             return {
                 pest: randomPest,
                 confidence: parseFloat(confidence),
-                hasPest: randomPest === 'Insects',
+                hasInsect: randomPest === 'withInsect', // UPDATED: Changed from hasPest to hasInsect
                 modelUsed: 'Simulation'
             };
         }
@@ -998,30 +998,51 @@
             const pestInfoLink = document.getElementById('pestInfoLink');
             
             let pestInfo;
-            let hasPest;
+            let hasInsect;
             let confidence;
+            let pestClass;
             let modelUsed = prediction.modelUsed || 'Colab AI';
             
+            // UPDATED: Handle new response format from backend
             if (prediction.pest) {
-                pestInfo = pestDatabase[prediction.pest];
-                hasPest = prediction.pest === 'Insects';
+                // Use the pest class from response (withInsect or withoutInsect)
+                pestClass = prediction.pest;
+                pestInfo = pestDatabase[pestClass] || pestDatabase[prediction.hasInsect ? 'withInsect' : 'withoutInsect'];
+                hasInsect = prediction.hasInsect || pestClass === 'withInsect';
+                confidence = prediction.confidence;
+            } else if (prediction.hasInsect !== undefined) {
+                // Handle old format for backward compatibility
+                pestClass = prediction.hasInsect ? 'withInsect' : 'withoutInsect';
+                pestInfo = pestDatabase[pestClass];
+                hasInsect = prediction.hasInsect;
                 confidence = prediction.confidence;
             } else {
-                pestInfo = pestDatabase[prediction.hasPest ? 'Insects' : 'Healthy'];
-                hasPest = prediction.hasPest;
-                confidence = prediction.confidence;
+                // Fallback to simulation
+                pestClass = 'withoutInsect';
+                pestInfo = pestDatabase[pestClass];
+                hasInsect = false;
+                confidence = prediction.confidence || 85.0;
+                modelUsed = 'Simulation';
             }
             
-            if (!hasPest) {
+            // Translate pestClass to Filipino for display
+            let pestDisplayText;
+            if (pestClass === 'withInsect') {
+                pestDisplayText = 'May Peste (Insekto)';
+            } else {
+                pestDisplayText = 'Walang Peste';
+            }
+            
+            if (!hasInsect) {
                 pestResult.innerHTML = `
-                    <strong style="color: #6B8E23;">✓ Walang Peste na Nakikita</strong>
+                    <strong style="color: #6B8E23;">✓ ${pestDisplayText}</strong>
                     <div class="pest-description">${pestInfo.description}</div>
                     <small style="color: #666;">Model: ${modelUsed}</small>
                 `;
                 pestInfoLink.style.display = 'none';
             } else {
                 pestResult.innerHTML = `
-                    <strong style="color: #ff6b6b;">⚠ May Peste sa Halaman</strong>
+                    <strong style="color: #ff6b6b;">⚠ ${pestDisplayText}</strong>
                     <div class="pest-description">${pestInfo.description}</div>
                     <small style="color: #666;">Model: ${modelUsed}</small>
                 `;
@@ -1111,4 +1132,3 @@ async function performLogout() {
 </script>
 </body>
 </html>
-
